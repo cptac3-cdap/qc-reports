@@ -27,18 +27,18 @@
 			}
 			ms1.ms2.index.matrix.2=ms1.ms2.index.matrix.2[1:(k-1),]
 	
-			## or open the file containing scan number out of grep function
-			# scan.table=read.table(mzid.file, stringsAsFactors=FALSE) 	# paste(mzid.file, ".txt", sep="")
-			# scan.strs=as.vector(scan.table[, 5])
-			# scan.ids=as.numeric(unlist(lapply(scan.strs, function(id){ gsub("[^0-9]", "", id)})))
-				
-			cmds <-
-			if(substr(mzid.file, nchar(mzid.file)-2, nchar(mzid.file))==".gz"){
-				c("gunzip -c '%s'", "grep '<SpectrumIdentificationResult'",   "tr '\"|' '  '",   "awk '{print $4}'")
-			}else{
-				c("grep '<SpectrumIdentificationResult' -c '%s'",   "tr '\"|' '  '",   "awk '{print $4}'")				
-			}
-			scan.ids = as.numeric(system(sprintf(paste0(cmds,collapse=" | "), mzid.file), intern=TRUE))
+			# Get the identified scans
+			source("parsemzid.R")
+
+                        mzid <- parsemzid(mzid.file)
+
+			# CPTAC PSMs have already been filtered at
+			# 1% spectral FDR and all but the rank 1 PSMs
+			# removed. In other scenarios, this filtering
+			# may need to be applied
+
+			# a scan may be mentioned more than once due to ties...
+			scan.ids <- unique(mzid$psms$scan)
 			
 			## m## none of the ms1 in mzML is found in mzID
 			# ms2.per.ms1.count=c()
