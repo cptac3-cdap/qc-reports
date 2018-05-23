@@ -2,6 +2,8 @@
 title: "Proteomic consistency metrics"
 author: "Simina Boca, Shaojun Tang, Yi Bai, Nathan Edwards"
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
+params:
+  qcmetricsfile: inputfilename.tsv
 output:
   html_document:
     number_sections: yes
@@ -12,7 +14,7 @@ output:
   pdf_document:
     number_sections: yes
     toc: yes
-always_allow_html: yescd /
+always_allow_html: yes
 ---
   
 ```{r setup, include=FALSE}
@@ -44,13 +46,20 @@ options(warn = -1)
 ```{r,include=FALSE}
 ##Read in metrics for individual analytical samples and fractions and check number of fractions and samples
 
-#files <- list.files(".")
-files <- list.files("d:/research/Collaborations/CPTAC/mzML/SourceCode/")  # (".")
+# files <- list.files(".")
+# files <- list.files("d:/research/Collaborations/CPTAC/mzML/SourceCode/")  # (".")
 
-QCmetrics_file <- files[grep("tsv",files)]
+# QCmetrics_file <- files[grep("tsv",files)]
 
-QCmetrics <- read.table(paste0("d:/research/Collaborations/CPTAC/mzML/SourceCode/", QCmetrics_file), header=TRUE, sep="\t")
-#QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
+# QCmetrics <- read.table(paste0("d:/research/Collaborations/CPTAC/mzML/SourceCode/", QCmetrics_file), header=TRUE, sep="\t")
+
+args <- commandArgs(TRUE)
+if (length(args) > 0) {
+  QCmetrics_file <- args[1]
+} else {
+  QCmetrics_file <- params$qcmetricsfile
+}
+QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
 
 dim(QCmetrics)
 head(QCmetrics)
