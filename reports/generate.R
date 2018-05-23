@@ -13,12 +13,16 @@ args <- commandArgs(TRUE)
 QCmetrics_file <- args[1]
 report_file <- args[2]
 
-if (endsWith(report_file,'.pdf')) {
+work.dir = dirname(report_file)
+file.copy(c(file.path(this.dir,"qcreport.Rmd")),work.dir)
+
+if (endsWith(report_file,'.pdf') == TRUE) {
     outformat <- 'pdf_document'
-} else if (endsWith(report_file, '.html')) {
+} else if (endsWith(report_file, '.html') == TRUE) {
     outformat <- 'html_document'
 }
-rmarkdown::render(file.path(this.dir,'qcreport.Rmd'),
-                  output_format = outformat,
+rmarkdown::render(file.path(work.dir,'qcreport.Rmd'),
+                  output_format = outformat, 
                   params = list(qcmetricsfile = QCmetrics_file,format = outformat), 
-                  output_file = report_file)
+                  output_file = report_file,
+                  quiet = TRUE)

@@ -4,6 +4,7 @@ author: "Simina Boca, Shaojun Tang, Yi Bai, Nathan Edwards"
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
 params:
   qcmetricsfile: inputfilename.tsv
+  format: html_document
 output:
   html_document:
     number_sections: yes
@@ -24,23 +25,24 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```{r, warning=FALSE, include=FALSE}
 library(ggplot2)
 library(reshape2)
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
 library(knitr)
 library(kableExtra)
 library(RColorBrewer) ## generate palette
 library(grid)
-library(gridExtra)  ## to show the plots side by side 
+suppressPackageStartupMessages(library(gridExtra))  ## to show the plots side by side 
 library(pander)      ## this package is used ot convert the .md file into PDF
-library(plotly)
-options(warn = -1)
+suppressPackageStartupMessages(library(plotly))
 ```
 
 
 ```{r}
-#options(knitr.table.format = "html")  
 # this allows the kable function work in html format to make pretty tables
 #but will not work in the PDF files, remember to remove it if generating PDF files
 #also remving the lines with kable in the code chunks related
+if (params$format != 'pdf_document') {
+  options(knitr.table.format = "html")  
+}
 ```
 
 ```{r,include=FALSE}
@@ -53,12 +55,7 @@ options(warn = -1)
 
 # QCmetrics <- read.table(paste0("d:/research/Collaborations/CPTAC/mzML/SourceCode/", QCmetrics_file), header=TRUE, sep="\t")
 
-args <- commandArgs(TRUE)
-if (length(args) > 0) {
-  QCmetrics_file <- args[1]
-} else {
-  QCmetrics_file <- params$qcmetricsfile
-}
+QCmetrics_file <- params$qcmetricsfile
 QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
 
 dim(QCmetrics)
@@ -607,7 +604,7 @@ percentage_table <- function(kind, n)
 
 
 # Experimental Design Summary 
-<a href="./`r QCmetrics_file`" target="_blank"><b>`r QCmetrics_file`</b></a>
+<a href="`r basename(QCmetrics_file)`" target="_blank"><b>`r basename(QCmetrics_file)`</b></a>
 
 Total number of analytical samples: `r length(unique(QCmetrics$analyticalBasename)) `. 
 
