@@ -13,8 +13,8 @@ args <- commandArgs(TRUE)
 QCmetrics_file <- args[1]
 report_file <- args[2]
 
-work.dir = dirname(report_file)
-file.copy(c(file.path(this.dir,"qcreport.Rmd")),work.dir)
+work.dir <- dirname(report_file)
+dummy <- file.copy(c(file.path(this.dir,"qcreport.Rmd")),work.dir);
 
 if (endsWith(report_file,'.pdf') == TRUE) {
     outformat <- 'pdf_document'
