@@ -104,17 +104,26 @@
 			
 			run=runInfo(mzml.data)
 			spectra.count=length(mzml.data) ## will be replaced
-			mzml.file.basename=basename(mzml.file)
-			spectrum.file.basename=strsplit(mzml.file.basename, ".", fixed=TRUE)[[1]][1]
-			base.name.strsplit=strsplit(mzml.file.basename, "_")[[1]]
-			analytical.sample.name=paste(base.name.strsplit[1:(length(base.name.strsplit)-1)], collapse="_")
-			
-			mzml.pos=gregexpr(".MZML", toupper(mzml.file.basename))[[1]][1]
-			fraction.num=strsplit(substr(toupper(mzml.file.basename), mzml.pos-4, mzml.pos-1), "F")[[1]][2]
-			if(grepl("[[:digit:]]", fraction.num)==TRUE){
-				fraction.num=as.numeric(gsub("(^|[^0-9])0+", "\\1", fraction.num, perl = TRUE))
-			}
-			
+
+                        mzml.file.basename=basename(mzml.file)
+
+                        # Assumes there is only one period in the filename...
+                        spectrum.file.basename=strsplit(mzml.file.basename, ".", fixed=TRUE)[[1]][1]
+                        base.name.strsplit=strsplit(spectrum.file.basename, "_")[[1]]
+
+                        # Does this handle double underscore correctly? Hopefully...
+                        analytical.sample.name=paste(base.name.strsplit[1:(length(base.name.strsplit)-1)], collapse="_")
+                        # Picking out the fraction number is hard because
+                        # there not much in the way of convention here,
+                        # there are a bunch of possibilities. 
+                        #
+                        # Assume it is the number (or A) looking thing
+                        # with or without a non-numeric prefix in the last
+                        # "_" delimited chunk. Add other special cases as needed...
+
+                        last_chunk=base.name.strsplit[length(base.name.strsplit)]
+                        fraction.num=type.convert(gsub("^[^0-9]*([0-9]+|A)$","\\1",last_chunk),as.is=TRUE)
+
 			## mzml.data -> unique(scan.ids)
 			info.lists=c("msLevel", "precursorCharge", "precursorIntensity", "precursorMZ","retentionTime")
 			info.matrix=matrix(0, length(unique(scan.ids)), length(info.lists))
@@ -183,17 +192,22 @@
 			spectra.count=length(mzml.data)
 			mzml.file.basename=basename(mzml.file)
 			
+			# Assumes there is only one period in the filename...
 			spectrum.file.basename=strsplit(mzml.file.basename, ".", fixed=TRUE)[[1]][1]
-			base.name.strsplit=strsplit(mzml.file.basename, "_")[[1]]
+			base.name.strsplit=strsplit(spectrum.file.basename, "_")[[1]]
 			
+			# Does this handle double underscore correctly? Hopefully...
 			analytical.sample.name=paste(base.name.strsplit[1:(length(base.name.strsplit)-1)], collapse="_")
-			mzml.pos=gregexpr(".MZML", toupper(mzml.file.basename))[[1]][1]
-			fraction.num=strsplit(substr(toupper(mzml.file.basename), mzml.pos-4, mzml.pos-1), "F")[[1]][2]
-			if(grepl("[[:digit:]]", fraction.num)==TRUE){
-				
-				fraction.num=as.numeric(gsub("(^|[^0-9])0+", "\\1", fraction.num, perl = TRUE))
-			}
+			# Picking out the fraction number is hard because
+			# there not much in the way of convention here,
+			# there are a bunch of possibilities. 
+			#
+			# Assume it is the number (or A) looking thing
+			# with or without a non-numeric prefix in the last
+                        # "_" delimited chunk. Add other special cases as needed...
 
+			last_chunk=base.name.strsplit[length(base.name.strsplit)]
+			fraction.num=type.convert(gsub("^[^0-9]*([0-9]+|A)$","\\1",last_chunk),as.is=TRUE)
 			
 			info.lists=c("msLevel", "precursorCharge", "precursorIntensity", "precursorMZ","retentionTime")
 			info.matrix=matrix(0, length(mzml.data), length(info.lists))
