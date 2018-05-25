@@ -33,6 +33,7 @@ library(grid)
 suppressPackageStartupMessages(library(gridExtra))  ## to show the plots side by side 
 library(pander)      ## this package is used ot convert the .md file into PDF
 suppressPackageStartupMessages(library(plotly))
+options(warn = -1)
 ```
 
 
@@ -99,6 +100,8 @@ if(sum(!is.na(QCmetrics$Fraction)) == 0)
 }
 
 ##Get the fractions (check they are 1-24):
+##Ugh - should use a better marker for "A" - how about 1000? or -1? or #unique fraction values? 
+##QCmetrics file will have an A in the fraction position, not NA, from now on. Handle this explicitly. 
 
 sort(unique(QCmetrics$Fraction))
 length(unique(QCmetrics$Fraction))
