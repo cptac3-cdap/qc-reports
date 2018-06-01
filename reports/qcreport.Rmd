@@ -59,22 +59,24 @@ if (params$format != 'pdf_document') {
 QCmetrics_file <- params$qcmetricsfile
 QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
 
-dim(QCmetrics)
-head(QCmetrics)
+# dim(QCmetrics)
+# head(QCmetrics)
 
 ##rename "fractionNum" to "Fraction"
 QCmetrics <- rename(QCmetrics, Fraction=fractionNum)
 
-##if there is CPTAC in the analytical Basename, split on that
+QCmetrics$analyticalBasenameLabel <- QCmetrics$analyticalBasename
+QCmetrics$analyticalBasenameFactor <- factor(QCmetrics$analyticalBasenameLabel)
+QCmetrics$analyticalBasenameIndex <- as.numeric(QCmetrics$analyticalBasenameFactor)
+QCmetrics$analyticalBasename <- QCmetrics$analyticalBasenameIndex
+# if these are left as numbers, the color scale is messed up. Why?
 QCmetrics$analyticalBasename <- as.character(QCmetrics$analyticalBasename)
-if(length(grep("CPTAC", QCmetrics$analyticalBasename))>0)
-{
- QCmetrics$analyticalBasename <- sapply(strsplit(QCmetrics$analyticalBasename,"CPTAC"),
-                                        function(x){x[[1]][1]})
-}
 
 ##add some new columns to QCmetrics (same as other columns, but useful for tooltip!)
-QCmetrics$`Analytical sample` <- QCmetrics$analyticalBasename
+QCmetrics$`Analytical sample` <- QCmetrics$analyticalBasenameLabel
+
+# summary(QCmetrics$analyticalBasename)
+# summary(QCmetrics$analyticalBasenameIndex)
 
 ##get total number of spectra per analytical sample
 numofMS2_ALL_per_AS <- tapply(QCmetrics$numofMS2_ALL, INDEX=QCmetrics$analyticalBasename, FUN=sum)
@@ -167,6 +169,13 @@ QCmetrics <- rename(QCmetrics,
                     MS2chargeALL.5andhigher = MS2Charge5_ALL##MS2Charge5andHigher_ALL,
                    )
 
+charge0avail <- FALSE
+if ("MS2Charge0_ALL" %in% colnames(QCmetrics)) {
+    QCmetrics <- rename(QCmetrics,
+                        MS2chargeALL.0 = MS2Charge0_ALL)
+    charge0avail <- TRUE
+}
+
 ##Create data frame melting the precursor intensities
 QCmetricsLongPrecInt_ALL <- melt(QCmetrics[,c(2,3,grep("PrecursorIntensityALL.",colnames(QCmetrics)))],
                              variable.name="PrecursorIntensityALL",
@@ -253,7 +262,11 @@ QCmetricsLongMS2Charge_ALL$Fraction <- QCmetricsLongMS2Charge_ALL$Fraction
 
 # create the label
 
-chargestate <- c("+1","+2", "+3","+4","5 and Higher")
+if (charge0avail) {
+  chargestate <- c("N/A","+1","+2", "+3","+4","5 and Higher")
+} else {
+  chargestate <- c("+1","+2", "+3","+4","5 and Higher")
+}
 
 #calculate the ratio for each of the charge state   
 chargestateratio_ALL <- 
@@ -264,10 +277,17 @@ chargestateratio_ALL <-
     sum(subset(QCmetricsLongMS2Charge_ALL, 
                MS2ChargeState == 3,select=c(Chargeratio))), 
     sum(subset(QCmetricsLongMS2Charge_ALL, 
-               MS2ChargeState == 4,
-                 select=c(Chargeratio))), sum(subset(QCmetricsLongMS2Charge_ALL, MS2ChargeState == "5andhigher",select=c(Chargeratio))))
+               MS2ChargeState == 4,select=c(Chargeratio))), 
+    sum(subset(QCmetricsLongMS2Charge_ALL, 
+               MS2ChargeState == "5andhigher",select=c(Chargeratio))))
+
+if (charge0avail) {
+  chargestateratio_ALL <- c(sum(subset(QCmetricsLongMS2Charge_ALL,                                                                       MS2ChargeState == 0,select=c(Chargeratio))),chargestateratio_ALL)
+}
+
 #generate the data frame contains the cahrge ratio
 Chargeratio_ALL <- data.frame(chargestate, chargestateratio_ALL)
+
 
 
 
@@ -317,6 +337,11 @@ QCmetrics <- rename(QCmetrics,
                     MS2chargeID.4 = MS2Charge4_ID,
                     MS2chargeID.5andhigher = MS2Charge5_ID##MS2Charge5andHigher_ID,
                    )
+
+if ("MS2Charge0_ID" %in% colnames(QCmetrics)) {
+    QCmetrics <- rename(QCmetrics,
+                        MS2chargeID.0 = MS2Charge0_ID)
+}
 
 
 ##Create data frame melting the precursor intensities
@@ -404,9 +429,14 @@ QCmetricsLongMS2Charge_ID$Fraction <- QCmetricsLongMS2Charge_ID$Fraction
 
 # calculate the values for charge distribution for differnt cahrge state 
 chargestateratio_ID <- c(sum(subset(QCmetricsLongMS2Charge_ID, MS2ChargeState == 1,select=c(Chargeratio))), sum(subset(QCmetricsLongMS2Charge_ID, MS2ChargeState == 2,select=c(Chargeratio))), sum(subset(QCmetricsLongMS2Charge_ID, MS2ChargeState == 3,select=c(Chargeratio))), sum(subset(QCmetricsLongMS2Charge_ID, MS2ChargeState == 4,select=c(Chargeratio))), sum(subset(QCmetricsLongMS2Charge_ID, MS2ChargeState == "5andhigher",select=c(Chargeratio))))
+if (charge0avail) {
+  chargestateratio_ID <- c(sum(subset(QCmetricsLongMS2Charge_ID,                                                                       MS2ChargeState == 0,select=c(Chargeratio))),chargestateratio_ID)
+}
+
 #generate the data frame contains the cahrge ratio
 Chargeratio_ID <- data.frame(chargestate, chargestateratio_ID)
-
+summary(Chargeratio_ALL)
+summary(Chargeratio_ID)
 ```
 
 ```{r,include=FALSE}
@@ -605,34 +635,22 @@ percentage_table <- function(kind, n)
 ```  
 
 
+<P/>
+Metrics: <a href="`r basename(QCmetrics_file)`" target="_blank"><b>`r basename(QCmetrics_file)`</b></a>
 
-# Experimental Design Summary 
-<a href="`r basename(QCmetrics_file)`" target="_blank"><b>`r basename(QCmetrics_file)`</b></a>
+# Experimental Design
 
-Total number of analytical samples: `r length(unique(QCmetrics$analyticalBasename)) `. 
-
-Number of fractions per analytical sample:
-```{r results='asis'}
-t <- table(QCmetrics$analyticalBasename)
-mat_t <- matrix(NA, ncol=2, nrow=length(unique(QCmetrics$analyticalBasename)))
-mat_t[,1] <- names(t)
-mat_t[,2] <- as.matrix(t)[,1]
-colnames(mat_t) <- c("Analytical sample", "Number of fractions")
-kable(mat_t)
+```{r echo=FALSE,results='asis'}
+t <- table(QCmetrics$analyticalBasenameIndex)
+mat_t <- matrix(NA, ncol=3, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
+mat_t[,1] <- 1:length(levels(QCmetrics$analyticalBasenameFactor))
+mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
+mat_t[,3] <- as.matrix(t)[,1]
+colnames(mat_t) <- c("Index","Analytical sample", "Fractions")
+kable(mat_t) %>% kable_styling(bootstrap_options = "striped", full_width = TRUE)
 ```
-  
-<br><br>
-<br><br>
 
-  
-  
-
-<br><br>
- 
-  
-  
-  
-# MS/MS spectra
+# MS/MS Spectra
 
 ## Total MS/MS Spectra by Analytical Sample
 
@@ -810,7 +828,7 @@ p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label")) %>% layout(annotations=
 subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```
 
-## MS/MS Spectra for Fractions by Analytical Sample
+## MS/MS Spectra for Fractions by Analytical Sample (box plot)
 
 This graph represents the boxplot of the number of MS/MS spectra across fraction versus the analytical sample (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
 
@@ -840,7 +858,7 @@ subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 
 
 
-## MS/MS Spectra for Fractions by Analytical Sample (linked)
+## MS/MS Spectra for Fractions by Analytical Sample (box plot, linked)
 
 This box plot gives the number of MS/MS spectra across fraction versus the analytical sample (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
 
@@ -1117,7 +1135,7 @@ subplot(p_PIsca_all, p_PIsca_id, titleY=TRUE)
 # Precursor m/z 
 
 
-## Precursor m/z Percentiles for Analytical Samplesby Fraction
+## Precursor m/z Percentiles for Analytical Samples by Fraction
 
 This graph shows the scatter plot of the 5%,25%,50%,75%,95% for precursor m/z values versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
 
@@ -1319,13 +1337,14 @@ find_median_table(QCmetricsLongMS2perMS_ID)
 -->
 
   
-# Precursor Charge state
+# Precursor Charge State
   
 ## Overall Precursor Charge State Distribution
 
 This graph shows the proportions of charge states for MS/MS spectra (same scale for all and identified MS/MS spectra). Each charge state is represented by a different color.
 
-```{r,  fig.width=10, fig.height=3}
+```{r, include=FALSE, fig.width=10, fig.height=3}
+
 
 min_ratio <- min(chargestateratio_ALL, chargestateratio_ID)
 max_ratio <- max(chargestateratio_ALL, chargestateratio_ID)
@@ -1334,11 +1353,11 @@ g_chargeratio_all <- ggplot(Chargeratio_ALL, aes(x=chargestate, y=chargestaterat
   geom_bar(stat="identity", aes(fill = chargestate)) +
   geom_text(aes(label = round(chargestateratio_ALL,3)), vjust=-0.3, size=4) +
   scale_color_manual (values = c(plotcolor), name = "Analytical Sample") +
-  scale_fill_discrete(name = "Charge State") +
   #stat_smooth(method="loess", fill="grey50", size=0)+
+  scale_fill_discrete(name = "Charge State") +
   ggtitle(title_ALL) +
   xlab("MS2 charge state") + ylab("Proportion") +
-  ylim(min_ratio, max_ratio*1.05) +
+  ylim(0, max_ratio*1.05) +
   theme(axis.text.x= element_text(angle = 0)) +
   theme(legend.position="none",
         plot.title = element_text(hjust=0.5))
@@ -1351,11 +1370,10 @@ g_chargeratio_ID <- ggplot(Chargeratio_ID, aes(y=chargestateratio_ID, x=chargest
   scale_fill_discrete(name = "Charge State") +
   ggtitle(title_ID) +
   xlab("MS2 charge state") + ylab("Proportion") +
-  ylim(min_ratio, max_ratio*1.05) +
+  ylim(0, max_ratio*1.05) +
   theme(axis.text.x= element_text(angle = 0)) +
   theme(legend.position="none",
         plot.title = element_text(hjust=0.5))
-
 
 grid_arrange_shared_legend(g_chargeratio_all, g_chargeratio_ID, ncol=2)
 
