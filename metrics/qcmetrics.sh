@@ -15,4 +15,4 @@ export PATH="/tools/bin:$PATH"
 
 RSCRIPT=${RSCRIPT:-Rscript} 
 
-"$RSCRIPT" "$METRICR" "$1" "$2" "$3" >/dev/null 2>&1 || exit 1
+( "$RSCRIPT" "$METRICR" "$1" "$2" "$3" >/dev/null 2>&1 && test -s "$3" ) || exit 1

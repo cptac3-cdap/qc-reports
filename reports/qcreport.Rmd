@@ -70,7 +70,9 @@ QCmetrics$analyticalBasenameFactor <- factor(QCmetrics$analyticalBasenameLabel)
 QCmetrics$analyticalBasenameIndex <- as.numeric(QCmetrics$analyticalBasenameFactor)
 QCmetrics$analyticalBasename <- QCmetrics$analyticalBasenameIndex
 # if these are left as numbers, the color scale is messed up. Why?
-QCmetrics$analyticalBasename <- as.character(QCmetrics$analyticalBasename)
+# QCmetrics$analyticalBasename <- as.character(QCmetrics$analyticalBasename)
+# This will ensure proper sort order (at least until 100 analytical samples)
+QCmetrics$analyticalBasename <- sprintf("%02d",QCmetrics$analyticalBasename)
 
 ##add some new columns to QCmetrics (same as other columns, but useful for tooltip!)
 QCmetrics$`Analytical sample` <- QCmetrics$analyticalBasenameLabel
