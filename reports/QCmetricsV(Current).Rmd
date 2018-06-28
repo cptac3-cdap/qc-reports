@@ -18,6 +18,28 @@ output:
 always_allow_html: yes
 ---
 
+<!--CSS-->
+<style>
+#TOC {
+  transition: opacity .5s;
+  -webkit-transition: opacity .5s;
+}
+show {
+  color: #163f82;
+}
+.text {
+  opacity: 1;
+  height: 130px;
+  transition: height .5s;
+  -webkit-transition: height .5s;
+  -moz-transition: height .5s;
+}
+.description .text {
+  opacity: 0;
+  height: 0;
+}
+</style>
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
@@ -833,6 +855,11 @@ kable(mat_t) %>% kable_styling(bootstrap_options = "striped", full_width = TRUE)
  
 # MS/MS spectra
 
+<des class="description">
+  <show>Show Section Details</show>
+  <div class="text"><br>All values shown in session 2 are taken from the ‘numofMS2_ALL’ or ‘numofMS2_ID’ field from the metric file.<br>2.1: each point shows for a given analytical sample, the total MS/MS spectra by summing up all fractions.<br> 2.2 & 2.3: each point shows for each analytical sample’ fraction, the number of MS/MS spectra. X axis indicates the analytical sample ID, while y axis indicates the fraction ID.<br>2.4 & 2.5: identical to 2.2 & 2.3, each point shows the number of MS/MS spectra for each analytical sample’ fraction. X axis indicates the fraction ID, while y axis indicates the analytical sample ID.</div>
+</des>
+
 ## Total MS/MS Spectra by Analytical Sample
 
 This graph gives the total number of MS/MS spectra per analytical sample, summed up over fractions (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
@@ -1008,6 +1035,7 @@ p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label")) %>% layout(annotations=
 
 subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```
+<br><br>
 
 ## MS/MS Spectra for Fractions by Analytical Sample
 
@@ -1035,6 +1063,7 @@ subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```
 <br><br>
 
+<!--
 ## MS/MS Spectra for Fractions by Analytical Sample (linked)
 
 This box plot gives the number of MS/MS spectra across fraction versus the analytical sample (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
@@ -1060,6 +1089,8 @@ p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(ann
 subplot(p_MS2box_all, p_MS2box_id, margin=0.05)
 ```
 <br><br>
+-->
+
 
 ## MS/MS Spectra for Analytical Samples by Fraction
 
@@ -1084,9 +1115,9 @@ subplot(p_MS2sca_all, p_MS2sca_id, margin=0.05)
 
 
 ```
-
 <br><br>
 
+<!--
 ## MS/MS Spectra for Analytical Samples by Fraction (linked)
 
 This graph shows the scatter plot of the number of MS/MS spectra versus fractions (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. The grey area represent the 95% confidence interval for each analytical sample when fitting the default smooth curves.
@@ -1115,9 +1146,8 @@ p_MS2sca_id <- ggplotly(g_MS2sca_id, tooltip=c("label","label2")) %>% layout(ann
 subplot(p_MS2sca_all, p_MS2sca_id, margin=0.05)
 
 ```
+-->
 
-
-<br><br>
 
 ## MS/MS Spectra for Analytical Samples by Fraction (box plot)
 
@@ -1146,7 +1176,7 @@ subplot(p_MS2box2_all, p_MS2box2_id, margin=0.05)
 
 
 
-  
+<!--
 ## MS/MS Spectra for Analytical Samples by Fraction (box plot, linked)
 
 This boxplot shows the number of MS/MS spectra versus the fraction (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. The grey area represent the 95% confidence interval for each analytical sample when fitting the default smooth curves.
@@ -1180,7 +1210,7 @@ subplot(p_MS2box2_all, p_MS2box2_id, margin=0.05)
 <br><br>
 <br><br>
 <br><br>
-
+-->
  
   
 # Precursor Intensity
@@ -1566,7 +1596,8 @@ QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasename
 ```
 
 This graph represents the boxplot of the number of MS/MS spectra across fraction versus the analytical sample (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
-
+<br><br>
+<p>By Sample</p>
 ```{r,fig.height=3, fig.width=10}
 
 # get the max and the min number of MS2 peptide counts, including ALL and ID
@@ -1577,6 +1608,18 @@ min_MS2 <- min(QCmetrics$PeptideCount)
 ##Get boxplot of number of peptide counts across fractions
 g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="analyticalBasename",
                       col_string="analyticalBasename", label_string="`Analytical sample`")
+p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
+
+subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
+
+```
+<br><br>
+
+<p>By Fraction</p>
+```{r,fig.height=3, fig.width=10}
+## Boxplot by Fraction number 
+g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="Fraction",
+                      col_string="Fraction", label_string="`Fraction`")
 p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
 
 subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
@@ -1646,5 +1689,19 @@ subplot(p_all, p_id, margin=0.05)
 
 ```
 
+<!--Javascript-->
+<script>
+$('des').on('click',function () {
+  $(this).toggleClass('description')
+});
 
-  
+var lastPos = 0;
+$(window).scroll(function() {
+    var currPos = $(document).scrollLeft();
+    if (lastPos < currPos) 
+    {$('#TOC').css('opacity', 0);} 
+    if (lastPos > currPos) 
+    {$('#TOC').css('opacity', 1);}
+    lastPos = currPos;
+});
+</script>
