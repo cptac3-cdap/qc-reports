@@ -1,5 +1,5 @@
 ---
-title: "Proteomic consistency metrics"
+title: "Proteomic Consistency Metrics"
 author: "Simina Boca, Shaojun Tang, Yi Bai, Nathan Edwards"
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
 params:
@@ -25,13 +25,13 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```{r, warning=FALSE, include=FALSE}
 library(ggplot2)
 library(reshape2)
-suppressPackageStartupMessages(library(dplyr))
 library(knitr)
 library(kableExtra)
 library(RColorBrewer) ## generate palette
 library(grid)
-suppressPackageStartupMessages(library(gridExtra))  ## to show the plots side by side 
-library(pander)      ## this package is used ot convert the .md file into PDF
+library(pander) ## this package is used ot convert the .md file into PDF
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(gridExtra)) ## to show the plots side by side 
 suppressPackageStartupMessages(library(plotly))
 options(warn = -1)
 ```
@@ -52,12 +52,22 @@ if (params$format != 'pdf_document') {
 # files <- list.files(".")
 # files <- list.files("d:/research/Collaborations/CPTAC/mzML/SourceCode/")  # (".")
 
+# Load from the Input forder (Jiahao)
+files <- list.files("./Input")
+
+
 # QCmetrics_file <- files[grep("tsv",files)]
 
 # QCmetrics <- read.table(paste0("d:/research/Collaborations/CPTAC/mzML/SourceCode/", QCmetrics_file), header=TRUE, sep="\t")
 
-QCmetrics_file <- params$qcmetricsfile
-QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
+# Current Working Metrics (Jiahao)
+#QCmetrics.files <- files[grep("CPTAC3_Uterine_Corpus_Endometrial_Carcinoma_CompRef_Proteome.qcmetrics.tsv",files)]
+#QCmetrics.files <- files[grep("SEER_PNNL_Phosphoproteome.qcmetrics.tsv",files)]
+QCmetrics_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.qcmetrics.tsv",files)]
+
+#QCmetrics_file <- params$qcmetricsfile
+#QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
+QCmetrics <- read.table(paste0("~/Desktop/CPTAC_3 /Input/", QCmetrics_file), header=TRUE, sep="\t")
 
 # dim(QCmetrics)
 # head(QCmetrics)
@@ -69,6 +79,7 @@ QCmetrics$analyticalBasenameLabel <- QCmetrics$analyticalBasename
 QCmetrics$analyticalBasenameFactor <- factor(QCmetrics$analyticalBasenameLabel)
 QCmetrics$analyticalBasenameIndex <- as.numeric(QCmetrics$analyticalBasenameFactor)
 QCmetrics$analyticalBasename <- QCmetrics$analyticalBasenameIndex
+
 # if these are left as numbers, the color scale is messed up. Why?
 # QCmetrics$analyticalBasename <- as.character(QCmetrics$analyticalBasename)
 # This will ensure proper sort order (at least until 100 analytical samples)
@@ -170,6 +181,26 @@ QCmetrics <- rename(QCmetrics,
                     MS2chargeALL.4 = MS2Charge4_ALL,
                     MS2chargeALL.5andhigher = MS2Charge5_ALL##MS2Charge5andHigher_ALL,
                    )
+## Adding Redundancy (Jiahao)
+QCmetrics <- rename(QCmetrics,
+                    PeptideRd.0 = minPeptideRedundancy,
+                    PeptideRd.5 = PeptideRedundancy5perc,
+                    PeptideRd.25 = PeptideRedundancy25perc,
+                    PeptideRd.50 = PeptideRedundancy50perc,
+                    PeptideRd.75 = PeptideRedundancy75perc,
+                    PeptideRd.95 = PeptideRedundancy95perc,
+                    PeptideRd.100 = maxPeptideRedundancy)
+
+# Adding Retention Time ALL
+QCmetrics <- rename(QCmetrics,
+                    RetentionTimeALL.0 = minRetentionTime_ALL,
+                    RetentionTimeALL.5 = RetentionTime5perc_ALL,
+                    RetentionTimeALL.25 = RetentionTime25perc_ALL,
+                    RetentionTimeALL.50 = RetentionTime50perc_ALL,
+                    RetentionTimeALL.75 = RetentionTime75perc_ALL,
+                    RetentionTimeALL.95 = RetentionTime95perc_ALL,
+                    RetentionTimeALL.100 = maxRetentionTime_ALL)
+
 
 charge0avail <- FALSE
 if ("MS2Charge0_ALL" %in% colnames(QCmetrics)) {
@@ -260,8 +291,39 @@ QCmetricsLongMS2Charge_ALL$Chargeratio<- c(QCmetricsLongMS2Charge_ALL$value/tota
 QCmetricsLongMS2Charge_ALL$`Analytical sample` <- QCmetricsLongMS2Charge_ALL$analyticalBasename
 QCmetricsLongMS2Charge_ALL$Fraction <- QCmetricsLongMS2Charge_ALL$Fraction
 
-# Create dataframe for different charge state
+# Create data frame melting Peptie Redundancy (Jiahao)
+QCmetricsPeptideRd <- melt(QCmetrics[,c(2,3,grep("PeptideRd.",colnames(QCmetrics)))],
+                            variable.name="PeptideRd",
+                            value.name="value",
+                            id.vars=c("analyticalBasename","Fraction"))
+head(QCmetricsPeptideRd)
+QCmetricsPeptideRd <- cbind(QCmetricsPeptideRd[,1:2],
+                             colsplit(QCmetricsPeptideRd[,3], "\\.",
+                                      c("PeptideRd","Percentile")),
+                             QCmetricsPeptideRd[,4])
+head(QCmetricsPeptideRd)
+colnames(QCmetricsPeptideRd)[5] <- "value"
 
+QCmetricsPeptideRd$`Analytical sample` <- QCmetricsPeptideRd$analyticalBasename
+QCmetricsPeptideRd$Fraction <- QCmetricsPeptideRd$Fraction
+
+# Create data frame melting Retention Time All
+QCmetricsPeptideRT_ALL <- melt(QCmetrics[,c(2,3,grep("RetentionTimeALL.",colnames(QCmetrics)))],
+                            variable.name="RetentionTimeALL",
+                            value.name="value",
+                            id.vars=c("analyticalBasename","Fraction"))
+head(QCmetricsPeptideRT_ALL)
+QCmetricsPeptideRT_ALL <- cbind(QCmetricsPeptideRT_ALL[,1:2],
+                             colsplit(QCmetricsPeptideRT_ALL[,3], "\\.",
+                                      c("RetentionTimeALL","Percentile")),
+                             QCmetricsPeptideRT_ALL[,4])
+head(QCmetricsPeptideRT_ALL)
+colnames(QCmetricsPeptideRT_ALL)[5] <- "value"
+
+QCmetricsPeptideRT_ALL$`Analytical sample` <- QCmetricsPeptideRT_ALL$analyticalBasename
+QCmetricsPeptideRT_ALL$Fraction <- QCmetricsPeptideRT_ALL$Fraction
+
+# Create dataframe for different charge state
 # create the label
 
 if (charge0avail) {
@@ -339,6 +401,17 @@ QCmetrics <- rename(QCmetrics,
                     MS2chargeID.4 = MS2Charge4_ID,
                     MS2chargeID.5andhigher = MS2Charge5_ID##MS2Charge5andHigher_ID,
                    )
+
+# Adding Retention Time ID (Jiahao)
+QCmetrics <- rename(QCmetrics,
+                    RetentionTimeID.0 = minRetentionTime_ID,
+                    RetentionTimeID.5 = RetentionTime5perc_ID,
+                    RetentionTimeID.25 = RetentionTime25perc_ID,
+                    RetentionTimeID.50 = RetentionTime50perc_ID,
+                    RetentionTimeID.75 = RetentionTime75perc_ID,
+                    RetentionTimeID.95 = RetentionTime95perc_ID,
+                    RetentionTimeID.100 = maxRetentionTime_ID)
+
 
 if ("MS2Charge0_ID" %in% colnames(QCmetrics)) {
     QCmetrics <- rename(QCmetrics,
@@ -439,6 +512,22 @@ if (charge0avail) {
 Chargeratio_ID <- data.frame(chargestate, chargestateratio_ID)
 summary(Chargeratio_ALL)
 summary(Chargeratio_ID)
+
+# Create data frame melting Retention Time ID (Jiahao)
+QCmetricsPeptideRT_ID <- melt(QCmetrics[,c(2,3,grep("RetentionTimeID.",colnames(QCmetrics)))],
+                            variable.name="RetentionTimeID",
+                            value.name="value",
+                            id.vars=c("analyticalBasename","Fraction"))
+head(QCmetricsPeptideRT_ID)
+QCmetricsPeptideRT_ID <- cbind(QCmetricsPeptideRT_ID[,1:2],
+                             colsplit(QCmetricsPeptideRT_ID[,3], "\\.",
+                                      c("RetentionTimeID","Percentile")),
+                             QCmetricsPeptideRT_ID[,4])
+head(QCmetricsPeptideRT_ID)
+colnames(QCmetricsPeptideRT_ID)[5] <- "value"
+
+QCmetricsPeptideRT_ID$`Analytical sample` <- QCmetricsPeptideRT_ID$analyticalBasename
+QCmetricsPeptideRT_ID$Fraction <- QCmetricsPeptideRT_ID$Fraction
 ```
 
 ```{r,include=FALSE}
@@ -496,6 +585,61 @@ all_spect_title_grid <- list(
 
 id_spect_title_grid <- list(
   text = "Identified MS/MS Spectra",
+  ##font = f,
+  xref = "paper",
+  yref = "paper",
+  yanchor = "bottom",
+  xanchor = "center",
+  align = "left",
+  x = 0.5,
+  y = 1.1,
+  showarrow = FALSE
+)
+
+# Add new layout annotation for MS/MS Distinct Peptides for Fractions by Analytical Sample (Jiahao)
+peptide_title <- list(
+  text = "Distinct MS/MS Peptide",
+  ##font = f,
+  xref = "paper",
+  yref = "paper",
+  yanchor = "bottom",
+  xanchor = "center",
+  align = "left",
+  x = 0.5,
+  y = 1.0,
+  showarrow = FALSE
+)
+
+# Add new layout annotation for Redundancy
+peptide_rd <- list(
+  text = "MS/MS Peptide Redundancy",
+  ##font = f,
+  xref = "paper",
+  yref = "paper",
+  yanchor = "bottom",
+  xanchor = "center",
+  align = "left",
+  x = 0.5,
+  y = 1.1,
+  showarrow = FALSE
+)
+
+# Add new layout annotation for Retention time 
+id_retention <-  list(
+  text = "Identified MS/MS Spectra Retention Time",
+  ##font = f,
+  xref = "paper",
+  yref = "paper",
+  yanchor = "bottom",
+  xanchor = "center",
+  align = "left",
+  x = 0.5,
+  y = 1.1,
+  showarrow = FALSE
+)
+
+all_retention <-  list(
+  text = "All MS/MS Spectra Retention Time",
   ##font = f,
   xref = "paper",
   yref = "paper",
@@ -1384,6 +1528,115 @@ grid_arrange_shared_legend(g_chargeratio_all, g_chargeratio_ID, ncol=2)
 ```
 
 <br><br>
+
+# Peptides 
+
+## MS/MS Distinct Peptides for Fractions by Analytical Sample
+```{r,fig.height=3, fig.width=10}
+#(Jiahao)
+##get total number of spectra per analytical sample
+numofPeptide_ID_per_AS <- tapply(QCmetrics$PeptideCount, INDEX=QCmetrics$analyticalBasename, FUN=sum)
+# identical(names(numofPeptide_ALL_per_AS), names(numofPeptide_ID_per_AS))
+
+QCmetrics_AS <- data.frame(analyticalBasename=names(numofPeptide_ID_per_AS),
+                           numofPeptide_ID_per_AS=numofPeptide_ID_per_AS)
+QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasename
+
+```
+
+This graph represents the boxplot of the number of MS/MS spectra across fraction versus the analytical sample (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
+<br><br>
+<p>By Sample</p>
+```{r,fig.height=3, fig.width=10}
+
+# get the max and the min number of MS2 peptide counts, including ALL and ID
+max_MS2 <- max(QCmetrics$PeptideCount)
+min_MS2 <- min(QCmetrics$PeptideCount)
+
+
+##Get boxplot of number of peptide counts across fractions
+g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="analyticalBasename",
+                      col_string="analyticalBasename", label_string="`Analytical sample`")
+p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
+
+subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
+
+```
+<br><br>
+
+<p>By Fraction</p>
+```{r,fig.height=3, fig.width=10}
+## Boxplot by Fraction number 
+g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="Fraction",
+                      col_string="Fraction", label_string="`Fraction`")
+p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
+
+subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
+
+```
+<br><br>
+
+## MS/MS Peptides Redundancy Plot for Fractions by Analytical Sample
+
+This graph shows the scatter plot of the 5%,25%,50%,75%,95% for Peptides Redundancy values versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
+
+```{r,fig.width=10, fig.height=3}
+g_id <- gg_points_frac_perc(filter(QCmetricsPeptideRd, Percentile %in% c(5,25,50,75,95)),
+                            y_string = "value",
+                            x_string = "Fraction",
+                            col_string = "analyticalBasename",
+                            group_string="analyticalBasename",
+                            label_string="`Analytical sample`",
+                            #min_y=find_min(QCmetricsPeptideRd),
+                            min_y = min(subset(QCmetricsPeptideRd, Percentile <= 95,select=c(value))),
+                            #max_y=find_max(QCmetricsPeptideRd))
+                            max_y = max(subset(QCmetricsPeptideRd, Percentile <= 95,select=c(value))))
+
+p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_rd)
+
+subplot(p_id, margin=0.05)
+
+```
+<br><br>
+
+
+# Retention Time
+
+
+## MS/MS Spectra Retention Time Plot for Fractions by Analytical Sample
+
+This graph shows the scatter plot of the 5%,25%,50%,75%,95% for spectra retention time versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
+
+```{r,fig.width=10, fig.height=3}
+g_all <- gg_points_frac_perc(filter(QCmetricsPeptideRT_ALL, Percentile %in% c(5,25,50,75,95)),
+                            y_string = "value",
+                            x_string = "Fraction",
+                            col_string = "analyticalBasename",
+                            group_string="analyticalBasename",
+                            label_string="`Analytical sample`",
+                            min_y=find_min(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID),
+                            #min_y = min(subset(QCmetricsPeptideRT_ALL, Percentile <= 95,select=c(value))),
+                            max_y=find_max(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID))
+                            #max_y = max(subset(QCmetricsPeptideRT_ALL, Percentile <= 95,select=c(value))))
+
+p_all <- ggplotly(g_all, tooltip=c("label","label2")) %>% layout(annotations=all_retention)
+
+g_id <- gg_points_frac_perc(filter(QCmetricsPeptideRT_ID, Percentile %in% c(5,25,50,75,95)),
+                            y_string = "value",
+                            x_string = "Fraction",
+                            col_string = "analyticalBasename",
+                            group_string="analyticalBasename",
+                            label_string="`Analytical sample`",
+                            min_y=find_min(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID),
+                            #min_y = min(subset(QCmetricsPeptideRT_ID, Percentile <= 95,select=c(value))),
+                            max_y=find_max(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID))
+                            #max_y = max(subset(QCmetricsPeptideRT_ID, Percentile <= 95,select=c(value))))
+
+p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_retention)
+
+subplot(p_all, p_id, margin=0.05)
+
+```
 
 
   
