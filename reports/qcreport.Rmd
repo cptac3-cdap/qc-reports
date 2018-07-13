@@ -579,7 +579,7 @@ all_spect_title_grid <- list(
   xanchor = "center",
   align = "left",
   x = 0.5,
-  y = 1.1,
+  y = 1.12,
   showarrow = FALSE
 )
 
@@ -592,13 +592,13 @@ id_spect_title_grid <- list(
   xanchor = "center",
   align = "left",
   x = 0.5,
-  y = 1.1,
+  y = 1.12,
   showarrow = FALSE
 )
 
 # Add new layout annotation for MS/MS Distinct Peptides for Fractions by Analytical Sample (Jiahao)
 peptide_title <- list(
-  text = "Distinct MS/MS Peptide",
+  text = "Distinct Peptide",
   ##font = f,
   xref = "paper",
   yref = "paper",
@@ -612,7 +612,7 @@ peptide_title <- list(
 
 # Add new layout annotation for Redundancy
 peptide_rd <- list(
-  text = "MS/MS Peptide Redundancy",
+  text = "Peptide Redundancy",
   ##font = f,
   xref = "paper",
   yref = "paper",
@@ -620,34 +620,7 @@ peptide_rd <- list(
   xanchor = "center",
   align = "left",
   x = 0.5,
-  y = 1.1,
-  showarrow = FALSE
-)
-
-# Add new layout annotation for Retention time 
-id_retention <-  list(
-  text = "Identified MS/MS Spectra Retention Time",
-  ##font = f,
-  xref = "paper",
-  yref = "paper",
-  yanchor = "bottom",
-  xanchor = "center",
-  align = "left",
-  x = 0.5,
-  y = 1.1,
-  showarrow = FALSE
-)
-
-all_retention <-  list(
-  text = "All MS/MS Spectra Retention Time",
-  ##font = f,
-  xref = "paper",
-  yref = "paper",
-  yanchor = "bottom",
-  xanchor = "center",
-  align = "left",
-  x = 0.5,
-  y = 1.1,
+  y = 1.12,
   showarrow = FALSE
 )
 ```
@@ -800,7 +773,7 @@ kable(mat_t) %>% kable_styling(bootstrap_options = "striped", full_width = TRUE)
 
 ## Total MS/MS Spectra by Analytical Sample
 
-This graph gives the total number of MS/MS spectra per analytical sample, summed up over fractions (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
+Graphs give the total number of MS/MS spectra for the sum of all fractions vs. analytical sample (separate scales for all and identified MS/MS spectra). Each sample represented by a different color.
 
 ```{r}
 gg_points <- function(data, y_string, x_string,
@@ -810,7 +783,7 @@ gg_points <- function(data, y_string, x_string,
                           col=col_string, label=label_string)) +
   geom_point() +
   theme(axis.title.x=element_blank(),
-        plot.margin = margin(0.2, 1.0, 0.2, 1.0, "cm"),
+        plot.margin = margin(0.2, 0.5, 0.2, 0.5, "cm"),
         # axis.text.x=element_blank(),
         legend.position="none")
 }
@@ -973,10 +946,11 @@ p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label")) %>% layout(annotations=
 
 subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```
+<br><br>
 
 ## MS/MS Spectra for Fractions by Analytical Sample (box plot)
 
-This graph represents the boxplot of the number of MS/MS spectra across fraction versus the analytical sample (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
+Graphs show boxplots of the number of MS/MS spectra for individual fraction vs. analytical sample (separate scales for all and identified MS/MS spectra). Each sample is represented by a different color.
 
 ```{r,fig.height=3, fig.width=10}
 
@@ -1003,7 +977,7 @@ subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 
 
 
-
+<!--
 ## MS/MS Spectra for Fractions by Analytical Sample (box plot, linked)
 
 This box plot gives the number of MS/MS spectra across fraction versus the analytical sample (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
@@ -1029,14 +1003,14 @@ p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(ann
 subplot(p_MS2box_all, p_MS2box_id, margin=0.05)
 ```
 <br><br>
-
+-->
 
 
 
 
 ## MS/MS Spectra for Analytical Samples by Fraction
 
-This graph shows the scatter plot of the number of MS/MS spectra versus the fraction (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. The grey area represents the 95% confidence interval for each analytical sample when fitting the default smooth curves. 
+Graphs shows a scatter plot of the number of MS/MS spectra for reach analytical sample vs. fraction (separate scales for all and identified MS/MS spectra). Each sample is represented by a different color. The grey area represents the 95% confidence interval for each sample when fitting the default smooth curves.
 
 ```{r, fig.height=3, fig.width=10}
 g_MS2sca_all <- gg_points_frac(QCmetrics,
@@ -1058,11 +1032,7 @@ subplot(p_MS2sca_all, p_MS2sca_id, margin=0.05)
 
 ```
 
-<br><br>
-
-
-
-
+<!--
 ## MS/MS Spectra for Analytical Samples by Fraction (linked)
 
 This graph shows the scatter plot of the number of MS/MS spectra versus fractions (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. The grey area represent the 95% confidence interval for each analytical sample when fitting the default smooth curves.
@@ -1091,7 +1061,6 @@ p_MS2sca_id <- ggplotly(g_MS2sca_id, tooltip=c("label","label2")) %>% layout(ann
 subplot(p_MS2sca_all, p_MS2sca_id, margin=0.05)
 
 ```
-
 
 <br><br>
 
@@ -1125,7 +1094,7 @@ subplot(p_MS2box2_all, p_MS2box2_id, margin=0.05)
 
 
 
-  
+
 ## MS/MS Spectra for Analytical Samples by Fraction (box plot, linked)
 
 This boxplot shows the number of MS/MS spectra versus the fraction (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. The grey area represent the 95% confidence interval for each analytical sample when fitting the default smooth curves.
@@ -1158,8 +1127,9 @@ subplot(p_MS2box2_all, p_MS2box2_id, margin=0.05)
 ```
 <br><br>
 <br><br>
+-->
 <br><br>
-
+<br><br>
  
   
 # Precursor Intensity
@@ -1219,7 +1189,7 @@ kable(rangetable_ID)# %>% kable_styling(bootstrap_options = "striped", full_widt
 
 ## Precursor Intensity Percentiles for Analytical Samples by Fraction
 
-This graph shows scatter plots of the 5%,25%,50%,75%,95% for log10(precursor intensity) values versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
+Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for log10(precursor intensity) values vs. fraction (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
 
 ```{r, fig.width=10, fig.height=3}
 # get the smallest and the largest value for all and identified seperately to help set the axis range
@@ -1268,22 +1238,17 @@ subplot(p_PIsca_all, p_PIsca_id, titleY=TRUE)
 
 
 ```
-
-
-
-  
 <br><br>
 <br><br>
-<br><br>
+
 
   
     
 # Precursor m/z 
 
-
 ## Precursor m/z Percentiles for Analytical Samples by Fraction
 
-This graph shows the scatter plot of the 5%,25%,50%,75%,95% for precursor m/z values versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
+Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for precursor m/z values vs. fraction (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
 
 ```{r,fig.width=10, fig.height=3}
 g_all <- gg_points_frac_perc(filter(QCmetricsLongPrecMZ_ALL, Percentile %in% c(5,25,50,75,95)),
@@ -1308,7 +1273,6 @@ p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_sp
 
 subplot(p_all, p_id, margin=0.05)
 ```
-
 <br><br>
 
 
@@ -1318,8 +1282,7 @@ subplot(p_all, p_id, margin=0.05)
 
 ## Precursor Molecular Weight Percentiles for Analytical Samples by Fraction
 
-
-This graph shows the scatter plot of the 5%,25%,50%,75%,95% for precursor molecular weight values versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
+Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for precursor molecular weight values vs. fraction (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
 
 ```{r,fig.width=10, fig.height=3}
 g_all <- gg_points_frac_perc(filter(QCmetricsLongPrecMW_ALL, Percentile %in% c(5,25,50,75,95)),
@@ -1345,9 +1308,8 @@ p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_sp
 subplot(p_all, p_id, margin=0.05)
 
 ```
-
 <br><br>
-
+<br><br>
 
 
 
@@ -1394,7 +1356,7 @@ subplot(p_all, p_id, margin=0.05)
 
 ## MS/MS Spectra per Cycle for Analytical Samples by Fraction
 
-This graph shows the scatterplot of the 5%,25%,50%,75%,95% for MS/MS per MS1 values versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. Note: the missing points in 5% are due to missing (zero) precursor intensity values in the mzML file
+Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for MS/MS per MS1 values vs. fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. *Note: the missing points in 5% are due to missing (zero) precursor intensity values in the mzML file.*
 
 ```{r,fig.width=10, fig.height=3}
 g_all <- gg_points_frac_perc(filter(QCmetricsLongMS2perMS_ALL, Percentile %in% c(5,25,50,75,95)),
@@ -1423,7 +1385,7 @@ min.ms2perms1=find_min(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID)
 # if(min.ms2perms1==0){cat("The missing points in are due to missing (zero) precursor intensity values in the mzML file")}
 
 ```
-
+<br><br>
 <br><br>
 
 
@@ -1487,7 +1449,7 @@ find_median_table(QCmetricsLongMS2perMS_ID)
   
 ## Overall Precursor Charge State Distribution
 
-This graph shows the proportions of charge states for MS/MS spectra (same scale for all and identified MS/MS spectra). Each charge state is represented by a different color.
+Graphs show the proportion of charge states for MS/MS spectra (same scale for all and identified MS/MS spectra). Each charge state is represented by a different color.
 
 ```{r, fig.width=10, fig.height=3}
 
@@ -1526,12 +1488,15 @@ grid_arrange_shared_legend(g_chargeratio_all, g_chargeratio_ID, ncol=2)
 
 
 ```
-
+<br><br>
 <br><br>
 
 # Peptides 
 
 ## MS/MS Distinct Peptides for Fractions by Analytical Sample
+
+Graph shows box plot of the number of Distinct Peptide Counts across fraction vs. analytical sample. Each analytical sample is represented by a different color. 
+
 ```{r,fig.height=3, fig.width=10}
 #(Jiahao)
 ##get total number of spectra per analytical sample
@@ -1544,9 +1509,6 @@ QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasename
 
 ```
 
-This graph represents the boxplot of the number of MS/MS spectra across fraction versus the analytical sample (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
-<br><br>
-<p>By Sample</p>
 ```{r,fig.height=3, fig.width=10}
 
 # get the max and the min number of MS2 peptide counts, including ALL and ID
@@ -1564,9 +1526,17 @@ subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
 ```
 <br><br>
 
-<p>By Fraction</p>
+
+## Distinct Peptides for Analytical sample by Fraction
+
+Graph shows box plot of the number of Distinct Peptide Counts across analytical sample vs. fractions. Each fraction is represented by a different color. 
+
 ```{r,fig.height=3, fig.width=10}
 ## Boxplot by Fraction number 
+# Reorder Fraction Factor 
+num = table(QCmetrics$analyticalBasenameIndex)[[1]]
+QCmetrics$Fraction <- factor(QCmetrics$Fraction, levels = QCmetrics$Fraction[1:num] )
+  
 g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="Fraction",
                       col_string="Fraction", label_string="`Fraction`")
 p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
@@ -1576,9 +1546,9 @@ subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
 ```
 <br><br>
 
-## MS/MS Peptides Redundancy Plot for Fractions by Analytical Sample
+## Peptides Redundancy Plot for Analytical Sample by Fraction
 
-This graph shows the scatter plot of the 5%,25%,50%,75%,95% for Peptides Redundancy values versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
+Graph shows the scatter plot of the 5%,25%,50%,75%,95% for Peptides Redundancy values versus fractions. Each panel is a different percentile. Each analytical sample is represented by a different color. 
 
 ```{r,fig.width=10, fig.height=3}
 g_id <- gg_points_frac_perc(filter(QCmetricsPeptideRd, Percentile %in% c(5,25,50,75,95)),
@@ -1598,14 +1568,15 @@ subplot(p_id, margin=0.05)
 
 ```
 <br><br>
+<br><br>
+
 
 
 # Retention Time
 
+## Retention Time Percentiles for Analytical Sample by Fraction
 
-## MS/MS Spectra Retention Time Plot for Fractions by Analytical Sample
-
-This graph shows the scatter plot of the 5%,25%,50%,75%,95% for spectra retention time versus fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
+Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for spectra retention time of each sample vs. fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
 
 ```{r,fig.width=10, fig.height=3}
 g_all <- gg_points_frac_perc(filter(QCmetricsPeptideRT_ALL, Percentile %in% c(5,25,50,75,95)),
