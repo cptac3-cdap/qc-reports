@@ -1529,20 +1529,27 @@ subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
 
 ## Distinct Peptides for Analytical sample by Fraction
 
-Graph shows box plot of the number of Distinct Peptide Counts across analytical sample vs. fractions. Each fraction is represented by a different color. 
+Graph shows scatter plot of the number of Distinct Peptide Counts across analytical sample vs. fractions. Each analytical sample is represented by a different color. 
 
-```{r,fig.height=3, fig.width=10}
+```{r,fig.height=5, fig.width=10}
 ## Boxplot by Fraction number 
 # Reorder Fraction Factor 
-num = table(QCmetrics$analyticalBasenameIndex)[[1]]
-QCmetrics$Fraction <- factor(QCmetrics$Fraction, levels = QCmetrics$Fraction[1:num] )
+#num = table(QCmetrics$analyticalBasenameIndex)[[1]]
+#QCmetrics$Fraction <- factor(QCmetrics$Fraction, levels = QCmetrics$Fraction[1:num] )
   
-g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="Fraction",
-                      col_string="Fraction", label_string="`Fraction`")
-p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
+#g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="Fraction",
+#                      col_string="Fraction", label_string="`Analytical sample`")
+#p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
 
-subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
+g_DP_byF <- gg_points_frac(QCmetrics,
+                               y_string="PeptideCount", x_string="Fraction",
+                               col_string="analyticalBasename",
+                               label_string = "`Analytical sample`",
+                               smooth=TRUE)
+p_DP_byF <- ggplotly(g_DP_byF, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
 
+#subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
+subplot(p_DP_byF, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
 ```
 <br><br>
 
