@@ -71,12 +71,16 @@ files <- list.files("./Input")
 #QCmetrics.files <- files[grep("SEER_PNNL_Phosphoproteome.qcmetrics.tsv",files)]
 QCmetrics_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.qcmetrics.tsv",files)]
 Summary_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.summary.tsv",files)]
+tmt10_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.tmt10.tsv",files)]
+
+#QCmetrics_file <- files[grep("CPTAC3_Uterine_Corpus_Endometrial_Carcinoma_Proteome.qcmetrics.tsv",files)]
+#Summary_file <- files[grep("CPTAC3_Uterine_Corpus_Endometrial_Carcinoma_Proteome.summary.tsv",files)]
+#tmt10_file <- files[grep("CPTAC3_Uterine_Corpus_Endometrial_Carcinoma_Proteome.tmt10.tsv",files)]
 
 #QCmetrics_file <- params$qcmetricsfile
 #QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
 QCmetrics <- read.table(paste0("~/Desktop/CPTAC_3 /Input/", QCmetrics_file), header=TRUE, sep="\t")
 SUmetrics <- read.table(paste0("~/Desktop/CPTAC_3 /Input/", Summary_file), header=TRUE, sep="\t", quote = "")
-tmt10_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.tmt10.tsv",files)]
 
 # dim(QCmetrics)
 # head(QCmetrics)
@@ -1473,7 +1477,7 @@ According to the <a href="`r basename(tmt10_file)`" target="_blank"><b>`r basena
 
 ```{r, fig.width=9, fig.height=9.5}
 # Generate index of isobaric label 
-iso_lab <- rep(c(1:9), 18)
+iso_lab <- rep(c(1:9), length(mat_t[,1]))
 df_out$`Isobaric Label` <- as.factor(iso_lab)
 
 # Generate the plot
