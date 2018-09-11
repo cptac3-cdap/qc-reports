@@ -1,6 +1,6 @@
 ---
 title: "Proteomic Consistency Metrics"
-author: "Simina Boca, Shaojun Tang, Yi Bai, Nathan Edwards"
+author: "Simina Boca, Shaojun Tang, Yi Bai, Jiahao Huang, Nathan Edwards"
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
 params:
   qcmetricsfile: inputfilename.tsv
@@ -17,7 +17,14 @@ output:
     toc: yes
 always_allow_html: yes
 ---
-  
+
+<!--Resize the main-container to spread the title-->
+<style>
+body .main-container {
+max-width: 2030px;
+}
+</style>
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
@@ -35,7 +42,6 @@ suppressPackageStartupMessages(library(gridExtra)) ## to show the plots side by 
 suppressPackageStartupMessages(library(plotly))
 options(warn = -1)
 ```
-
 
 ```{r}
 # this allows the kable function work in html format to make pretty tables
@@ -64,10 +70,12 @@ files <- list.files("./Input")
 #QCmetrics.files <- files[grep("CPTAC3_Uterine_Corpus_Endometrial_Carcinoma_CompRef_Proteome.qcmetrics.tsv",files)]
 #QCmetrics.files <- files[grep("SEER_PNNL_Phosphoproteome.qcmetrics.tsv",files)]
 QCmetrics_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.qcmetrics.tsv",files)]
+Summary_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.summary.tsv",files)]
 
 #QCmetrics_file <- params$qcmetricsfile
 #QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
 QCmetrics <- read.table(paste0("~/Desktop/CPTAC_3 /Input/", QCmetrics_file), header=TRUE, sep="\t")
+SUmetrics <- read.table(paste0("~/Desktop/CPTAC_3 /Input/", Summary_file), header=TRUE, sep="\t", quote = "")
 
 # dim(QCmetrics)
 # head(QCmetrics)
@@ -86,7 +94,7 @@ QCmetrics$analyticalBasename <- QCmetrics$analyticalBasenameIndex
 QCmetrics$analyticalBasename <- sprintf("%02d",QCmetrics$analyticalBasename)
 
 ##add some new columns to QCmetrics (same as other columns, but useful for tooltip!)
-QCmetrics$`Analytical sample` <- QCmetrics$analyticalBasenameLabel
+QCmetrics$`Analytical sample` <- QCmetrics$analyticalBasename 
 
 # summary(QCmetrics$analyticalBasename)
 # summary(QCmetrics$analyticalBasenameIndex)
@@ -351,12 +359,7 @@ if (charge0avail) {
 
 #generate the data frame contains the cahrge ratio
 Chargeratio_ALL <- data.frame(chargestate, chargestateratio_ALL)
-
-
-
-
 ```
-
 
 ```{r,include=FALSE}
 ##Change some column names to make things easier
@@ -508,8 +511,11 @@ if (charge0avail) {
   chargestateratio_ID <- c(sum(subset(QCmetricsLongMS2Charge_ID,                                                                       MS2ChargeState == 0,select=c(Chargeratio))),chargestateratio_ID)
 }
 
-#generate the data frame contains the cahrge ratio
+#generate the data frame contains the cahrge ratio (Jiahao)
 Chargeratio_ID <- data.frame(chargestate, chargestateratio_ID)
+Chargeratio_ID$`Proportion` <- round((Chargeratio_ID$chargestateratio_ID)*100,2)
+Chargeratio_ALL$`Proportion` <- round((Chargeratio_ALL$chargestateratio_ALL)*100,2)
+
 summary(Chargeratio_ALL)
 summary(Chargeratio_ID)
 
@@ -579,7 +585,7 @@ all_spect_title_grid <- list(
   xanchor = "center",
   align = "left",
   x = 0.5,
-  y = 1.12,
+  y = 1.15,
   showarrow = FALSE
 )
 
@@ -592,7 +598,7 @@ id_spect_title_grid <- list(
   xanchor = "center",
   align = "left",
   x = 0.5,
-  y = 1.12,
+  y = 1.15,
   showarrow = FALSE
 )
 
@@ -621,6 +627,20 @@ peptide_rd <- list(
   align = "left",
   x = 0.5,
   y = 1.12,
+  showarrow = FALSE
+)
+
+# Add new layout annotation for Identified Protein
+protein_title <- list(
+  text = "Unshared Peptide",
+  ##font = f,
+  xref = "paper",
+  yref = "paper",
+  yanchor = "bottom",
+  xanchor = "center",
+  align = "left",
+  x = 0.5,
+  y = 1.0,
   showarrow = FALSE
 )
 ```
@@ -655,7 +675,6 @@ grid_arrange_shared_legend <- function(..., ncol = length(list(...)), nrow = 1, 
 
 ```
 
-
 ```{r}
 
 # make a function to compute the max and min value 
@@ -676,9 +695,9 @@ find_min <- function(n,m)
   return(min_n)
 }
 
-# create title for each of the plot 
-title_ALL <- "Number of Raw MS/MS Spectra"
-title_ID <-  "Number of Identified MS/MS Spectra"
+# create title for each of the plot (Jiahao)
+title_ALL <- "All MS/MS Spectra" 
+title_ID <-  "Identified MS/MS Spectra"
 
 #find_min(QCmetricsLongPrecMW_ALL, QCmetricsLongPrecMW_ID)
 ```
@@ -750,32 +769,10 @@ percentage_table <- function(kind, n)
 }
 
 #percentage_table("fraction",QCPrecIntof0_ALL )
-
 ```  
 
-
-<P/>
-Metrics: <a href="`r basename(QCmetrics_file)`" target="_blank"><b>`r basename(QCmetrics_file)`</b></a>
-
-# Experimental Design
-
-```{r echo=FALSE,results='asis'}
-t <- table(QCmetrics$analyticalBasenameIndex)
-mat_t <- matrix(NA, ncol=3, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
-mat_t[,1] <- 1:length(levels(QCmetrics$analyticalBasenameFactor))
-mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
-mat_t[,3] <- as.matrix(t)[,1]
-colnames(mat_t) <- c("Index","Analytical sample", "Fractions")
-kable(mat_t) %>% kable_styling(bootstrap_options = "striped", full_width = TRUE)
-```
-
-# MS/MS Spectra
-
-## Total MS/MS Spectra by Analytical Sample
-
-Graphs give the total number of MS/MS spectra for the sum of all fractions vs. analytical sample (separate scales for all and identified MS/MS spectra). Each sample represented by a different color.
-
 ```{r}
+# Define plot function (Jiahao)
 gg_points <- function(data, y_string, x_string,
                    col_string, label_string)
 {
@@ -783,7 +780,7 @@ gg_points <- function(data, y_string, x_string,
                           col=col_string, label=label_string)) +
   geom_point() +
   theme(axis.title.x=element_blank(),
-        plot.margin = margin(0.2, 0.5, 0.2, 0.5, "cm"),
+        plot.margin = margin(0.2, 0.5, 0.2, 0, "cm"),
         # axis.text.x=element_blank(),
         legend.position="none")
 }
@@ -798,7 +795,7 @@ gg_box <- function(data, y_string, x_string,
     geom_boxplot()+
     geom_point(alpha=0.6) +
     theme(axis.title.x=element_blank(),
-          plot.margin = margin(0.2, 1.0, 0.2, 1.0, "cm"),
+          plot.margin = margin(0.2, 1.0, 0.2, 0, "cm"),
           # axis.text.x=element_blank(),
           legend.position="none")
   if(same_scale)
@@ -853,7 +850,7 @@ gg_points_frac <- function(data, y_string, x_string,
     scale_x_continuous(breaks = new.break.points, labels = data.original.level[new.break.points]) +
     theme(axis.title.x=element_blank(),
           axis.title.y=element_blank(), #           panel.margin.x=unit(0.5, "lines") , panel.margin.y=unit(1,"lines"), # added 4/12
-          plot.margin = margin(0.2, 1.0, 0.2, 1.0, "cm"),
+          plot.margin = margin(0.2, 1.0, 0.2, 0, "cm"),
           legend.position="none")    
       
 
@@ -906,7 +903,8 @@ gg_points_frac_perc <- function(data, y_string, x_string,
                              col=col_string, group=group_string,
                              label=label_string, label2=label2_string)) + 
         facet_grid(~ Percentile)   +
-        scale_x_continuous(breaks = new.break.points, labels=data.original.level[new.break.points]) 
+        scale_x_continuous(breaks = new.break.points, labels=data.original.level[new.break.points]) +
+        theme(plot.margin = margin(0.2, 1.0, 0.2, 0, "cm")) #change 
     
   
   if(same_scale){
@@ -923,275 +921,83 @@ gg_points_frac_perc <- function(data, y_string, x_string,
   }
   pfc + geom_point(aes_string(col=col_string), alpha=0.6, size=0.9)
 }
-```
 
-
-```{r,fig.height=3, fig.width=10}
-
-# get the max and the min number of MS2 spectra, including ALL and ID
-max_MS2 <- max(max(QCmetrics_AS$numofMS2_ALL_per_AS), max(QCmetrics_AS$numofMS2_ID_per_AS))
-min_MS2 <- min(min(QCmetrics_AS$numofMS2_ALL_per_AS), min(QCmetrics_AS$numofMS2_ID_per_AS))
-
-##Get plot of number of spectra
-g_MS2box_all <- gg_points(QCmetrics_AS, 
-                          y_string="numofMS2_ALL_per_AS", x_string="analyticalBasename",
-                          col_string="analyticalBasename", label_string="`Analytical sample`")
-p_MS2box_all <- ggplotly(g_MS2box_all, tooltip=c("label")) %>% layout(annotations=all_spect_title)
-
-##Get plot of number of spectra
-g_MS2box_id <- gg_points(QCmetrics_AS, 
-                         y_string="numofMS2_ID_per_AS", x_string="analyticalBasename",
-                         col_string="analyticalBasename", label_string="`Analytical sample`")
-p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label")) %>% layout(annotations=id_spect_title)
-
-subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
-```
-<br><br>
-
-## MS/MS Spectra for Fractions by Analytical Sample (box plot)
-
-Graphs show boxplots of the number of MS/MS spectra for individual fraction vs. analytical sample (separate scales for all and identified MS/MS spectra). Each sample is represented by a different color.
-
-```{r,fig.height=3, fig.width=10}
-
-# get the max and the min number of MS2 spectra, including ALL and ID
-max_MS2 <- max(max(QCmetrics$numofMS2_ALL), max(QCmetrics$numofMS2_ID))
-min_MS2 <- min(min(QCmetrics$numofMS2_ALL), min(QCmetrics$numofMS2_ID))
-
-
-##Get boxplot of number of spectra across fractions
-g_MS2box_all <- gg_box(QCmetrics, y_string="numofMS2_ALL", x_string="analyticalBasename",
-                       col_string="analyticalBasename", label_string="`Analytical sample`")
-p_MS2box_all <- ggplotly(g_MS2box_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title)
-
-##Get boxplot of number of spectra across fractions
-g_MS2box_id <- gg_box(QCmetrics, y_string="numofMS2_ID", x_string="analyticalBasename",
-                      col_string="analyticalBasename", label_string="`Analytical sample`")
-p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title)
-
-subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
-
-```
-<br><br>
-
-
-
-
-<!--
-## MS/MS Spectra for Fractions by Analytical Sample (box plot, linked)
-
-This box plot gives the number of MS/MS spectra across fraction versus the analytical sample (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. 
-
-```{r,fig.height=3, fig.width=10}
-
-##Get boxplot of number of spectra across fractions
-g_MS2box_all <- gg_box(QCmetrics, y_string="numofMS2_ALL", x_string="analyticalBasename",
-                       col_string="analyticalBasename", label_string="`Analytical sample`",
-                       same_scale=TRUE,
-                       min_y=min_MS2,
-                       max_y=max_MS2)
-p_MS2box_all <- ggplotly(g_MS2box_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title)
-
-##Get boxplot of number of spectra across fractions
-g_MS2box_id <- gg_box(QCmetrics, y_string="numofMS2_ID", x_string="analyticalBasename",
-                      col_string="analyticalBasename", label_string="`Analytical sample`",
-                      same_scale=TRUE,
-                      min_y=min_MS2,
-                      max_y=max_MS2)
-p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title)
-
-subplot(p_MS2box_all, p_MS2box_id, margin=0.05)
-```
-<br><br>
--->
-
-
-
-
-## MS/MS Spectra for Analytical Samples by Fraction
-
-Graphs shows a scatter plot of the number of MS/MS spectra for reach analytical sample vs. fraction (separate scales for all and identified MS/MS spectra). Each sample is represented by a different color. The grey area represents the 95% confidence interval for each sample when fitting the default smooth curves.
-
-```{r, fig.height=3, fig.width=10}
-g_MS2sca_all <- gg_points_frac(QCmetrics,
-                               y_string="numofMS2_ALL", x_string="Fraction",
-                               col_string="analyticalBasename",
-                               label_string = "`Analytical sample`",
-                               smooth=TRUE)
-p_MS2sca_all <- ggplotly(g_MS2sca_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title)
-
-g_MS2sca_id <- gg_points_frac(QCmetrics,
-                               y_string="numofMS2_ID", x_string="Fraction",
-                               col_string="analyticalBasename",
-                               label_string = "`Analytical sample`",
-                               smooth=TRUE)
-p_MS2sca_id <- ggplotly(g_MS2sca_id, tooltip=c("label","label2"))  %>% layout(annotations=id_spect_title)
-
-subplot(p_MS2sca_all, p_MS2sca_id, margin=0.05)
-
-
-```
-
-<!--
-## MS/MS Spectra for Analytical Samples by Fraction (linked)
-
-This graph shows the scatter plot of the number of MS/MS spectra versus fractions (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. The grey area represent the 95% confidence interval for each analytical sample when fitting the default smooth curves.
-
-```{r,fig.width=10, fig.height=3}
-g_MS2sca_all <- gg_points_frac(QCmetrics,
-                               y_string="numofMS2_ALL", x_string="Fraction",
-                               col_string="analyticalBasename",
-                               label_string = "`Analytical sample`",
-                               smooth=TRUE,
-                               same_scale = TRUE, 
-                               min_y=min_MS2,
-                               max_y=max_MS2)
-p_MS2sca_all <- ggplotly(g_MS2sca_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title)
-
-g_MS2sca_id <- gg_points_frac(QCmetrics,
-                               y_string="numofMS2_ID", x_string="Fraction",
-                               col_string="analyticalBasename",
-                               label_string = "`Analytical sample`",
-                               smooth=TRUE,
-                               same_scale = TRUE, 
-                               min_y=min_MS2,
-                               max_y=max_MS2)
-p_MS2sca_id <- ggplotly(g_MS2sca_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title)
-
-subplot(p_MS2sca_all, p_MS2sca_id, margin=0.05)
-
-```
-
-<br><br>
-
-
-
-
-## MS/MS Spectra for Analytical Samples by Fraction (box plot)
-
-This box plot shows the number of MS/MS spectra versus the fraction (separate scales for all and identified MS/MS spectra). Each analytical sample is represented by a different color. The grey area represent the 95% confidence interval for each analytical sample when fitting the default smooth curves.
-
-```{r,  fig.width=10, fig.height=3}
-g_MS2box2_all <- gg_points_frac(QCmetrics,
-                                y_string="numofMS2_ALL", x_string="Fraction",
-                                col_string="analyticalBasename",
-                                label_string = "`Analytical sample`",
-                                smooth=TRUE, boxplot=TRUE)
-p_MS2box2_all <- ggplotly(g_MS2box2_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title)
-
-g_MS2box2_id <- gg_points_frac(QCmetrics,
-                               y_string="numofMS2_ID", x_string="Fraction",
-                               col_string="analyticalBasename",
-                               label_string = "`Analytical sample`",
-                               smooth=TRUE, boxplot=TRUE)
-p_MS2box2_id <- ggplotly(g_MS2box2_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title)
-
-subplot(p_MS2box2_all, p_MS2box2_id, margin=0.05)
-
-```
-
-<br><br>
-
-
-
-
-## MS/MS Spectra for Analytical Samples by Fraction (box plot, linked)
-
-This boxplot shows the number of MS/MS spectra versus the fraction (same scale for all and identified MS/MS spectra). Each analytical sample is represented by a different color. The grey area represent the 95% confidence interval for each analytical sample when fitting the default smooth curves.
-
-```{r,  fig.width=10, fig.height=3}
-g_MS2box2_all <- gg_points_frac(QCmetrics,
-                                y_string="numofMS2_ALL", x_string="Fraction",
-                                col_string="analyticalBasename",
-                                label_string = "`Analytical sample`",
-                                smooth=TRUE, boxplot=TRUE,
-                                same_scale = TRUE, 
-                                min_y=min_MS2,
-                                max_y=max_MS2)
-p_MS2box2_all <- ggplotly(g_MS2box2_all, tooltip=c("label","label2"))
-
-g_MS2box2_id <- gg_points_frac(QCmetrics,
-                               y_string="numofMS2_ID", x_string="Fraction",
-                               col_string="analyticalBasename",
-                               label_string = "`Analytical sample`",
-                               smooth=TRUE, boxplot = TRUE,
-                               same_scale = TRUE, 
-                               min_y=min_MS2,
-                               max_y=max_MS2)
-p_MS2box2_id <- ggplotly(g_MS2box2_id, tooltip=c("label","label2")) 
-
-subplot(p_MS2box2_all, p_MS2box2_id, margin=0.05)
-
-
-
-```
-<br><br>
-<br><br>
--->
-<br><br>
-<br><br>
- 
-  
-# Precursor Intensity
-<!--
-## Range of precursor intensity values for all MS/MS spectra
-  This table shows the range of the precursor intensity for each percentile, as a summary.
-  Note that values of 0 cannot be log-transformed.
-
-```{r, results='hide'}
-B = c(5,25,50,75,95)
-
-rangetable_ALL = matrix(,nrow = 2, ncol = length(B), byrow = TRUE)
-for (i in 1:length(B)){
-  rangesub_ALL <-subset(QCmetricsLongPrecInt_ALL, QCmetricsLongPrecInt_ALL$Percentile == B[i])
-  
-  # filter to get only the wanted percentile
-  #print(range(rangesub$value))
-  rangetable_ALL[1,i] <- toString(round(range(rangesub_ALL$value),2))
-  rangetable_ALL[2,i] <- toString(signif(log10(range(rangesub_ALL$value)),3))
+# Add ggbars
+gg_bars <- function(data, y_string, x_string, col_string, label_string)
+{
+  ggplot(data, aes_string(y=y_string, x=x_string, fill=col_string, label=label_string)) +
+  geom_bar(stat = "identity") +
+  theme(axis.title.x=element_blank(),
+        plot.margin = margin(0.2, 0.5, 0.2, 0, "cm"),
+        # axis.text.x=element_blank(),
+        legend.title = element_blank()
+)
 }
-colnames(rangetable_ALL)<-c("5th Perc","25th perc","50th perc","75th perc","95th perc")
-rownames(rangetable_ALL)<-c("range", "range of log10 transformed")
-kable(rangetable_ALL)# %>% kable_styling(bootstrap_options = "striped", full_width = FALSE)
-
-```
-<br><br>
-
-  
-## Range of precursor intensity values for identified MS/MS spectra
-  This table shows the range of the precursor intensity for each percentile, as a summary. Note that values of 0 cannot be log-transformed.
-  
-```{r}
-B = c(5,25,50,75,95)
-
-rangetable_ID = matrix(,nrow = 2, ncol = length(B), byrow = TRUE)
-for (i in 1:length(B)){
-  rangesub_ID <-subset(QCmetricsLongPrecInt_ID, QCmetricsLongPrecInt_ID$Percentile == B[i])
-  
-  # filter to get only the wanted percentile
-  #print(range(rangesub$value))
-  rangetable_ID[1,i] <- toString(round(range(rangesub_ID$value),2))
-  rangetable_ID[2,i] <- toString(signif(log10(range(rangesub_ID$value)),3))
-}
-colnames(rangetable_ID)<-c("5th Perc","25th perc","50th perc","75th perc","95th perc")
-rownames(rangetable_ID)<-c("range", "range of log10 transformed")
-kable(rangetable_ID)# %>% kable_styling(bootstrap_options = "striped", full_width = FALSE)
-
 ```
 
-<br><br>
+<P/>
+Metrics: <a href="`r basename(QCmetrics_file)`" target="_blank"><b>`r basename(QCmetrics_file)`</b></a>
 
+# Experimental Design
 
+```{r echo=FALSE,results='asis'}
+t <- table(QCmetrics$analyticalBasenameIndex)
+mat_t <- matrix(NA, ncol=3, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
+mat_t[,1] <- 1:length(levels(QCmetrics$analyticalBasenameFactor))
+mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
+mat_t[,3] <- as.matrix(t)[,1]
+colnames(mat_t) <- c("Index","Analytical sample", "Fractions")
+kable(mat_t) %>% kable_styling(bootstrap_options = "striped", full_width = TRUE)
+```
+<hr>
+<br>
 
--->
+# - Chromatography
 
+## - Retention Time Percentiles for Analytical Sample by Fraction
 
+Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for spectra retention time of each sample vs. fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
 
-## Precursor Intensity Percentiles for Analytical Samples by Fraction
+```{r,fig.width=9.3, fig.height=2.8}
+g_all <- gg_points_frac_perc(filter(QCmetricsPeptideRT_ALL, Percentile %in% c(5,25,50,75,95)),
+                            y_string = "value",
+                            x_string = "Fraction",
+                            col_string = "analyticalBasename",
+                            group_string="analyticalBasename",
+                            label_string="`Analytical sample`",
+                            min_y=find_min(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID),
+                            #min_y = min(subset(QCmetricsPeptideRT_ALL, Percentile <= 95,select=c(value))),
+                            max_y=find_max(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID))
+                            #max_y = max(subset(QCmetricsPeptideRT_ALL, Percentile <= 95,select=c(value))))
+
+p_all <- ggplotly(g_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title_grid)
+
+g_id <- gg_points_frac_perc(filter(QCmetricsPeptideRT_ID, Percentile %in% c(5,25,50,75,95)),
+                            y_string = "value",
+                            x_string = "Fraction",
+                            col_string = "analyticalBasename",
+                            group_string="analyticalBasename",
+                            label_string="`Analytical sample`",
+                            min_y=find_min(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID),
+                            #min_y = min(subset(QCmetricsPeptideRT_ID, Percentile <= 95,select=c(value))),
+                            max_y=find_max(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID))
+                            #max_y = max(subset(QCmetricsPeptideRT_ID, Percentile <= 95,select=c(value))))
+
+p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title_grid)
+
+subplot(p_all, p_id, margin=0.05)
+
+```
+<hr>
+<br>
+
+# - MS Precursor 
+
+## - Precursor Intensity for Analytical Samples by Fraction
 
 Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for log10(precursor intensity) values vs. fraction (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
 
-```{r, fig.width=10, fig.height=3}
+```{r, fig.width=9.3, fig.height=2.8}
 # get the smallest and the largest value for all and identified seperately to help set the axis range
 # Important! Shaojun add 0.5 value to the min and max value to advoid not ploting the points correctly
 
@@ -1234,23 +1040,16 @@ g_PIsca_id <- gg_points_frac_perc(filter(QCmetricsLongPrecInt_ID, Percentile %in
                                   max_y=max(Pmax_ALL, Pmax_ID))
 p_PIsca_id <- ggplotly(g_PIsca_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title_grid)
 
-subplot(p_PIsca_all, p_PIsca_id, titleY=TRUE)
+subplot(p_PIsca_all, p_PIsca_id, titleY=TRUE, margin=0.05) #change
 
 
 ```
-<br><br>
-<br><br>
 
-
-  
-    
-# Precursor m/z 
-
-## Precursor m/z Percentiles for Analytical Samples by Fraction
+## - Precursor m/z for Analytical Samples by Fraction
 
 Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for precursor m/z values vs. fraction (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
 
-```{r,fig.width=10, fig.height=3}
+```{r,fig.width=9.3, fig.height=2.8}
 g_all <- gg_points_frac_perc(filter(QCmetricsLongPrecMZ_ALL, Percentile %in% c(5,25,50,75,95)),
                              y_string = "value",
                              x_string = "Fraction",
@@ -1273,18 +1072,12 @@ p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_sp
 
 subplot(p_all, p_id, margin=0.05)
 ```
-<br><br>
 
-
-
-    
-# Precursor Molecular Weight 
-
-## Precursor Molecular Weight Percentiles for Analytical Samples by Fraction
+## - Precursor Molecular Weight for Analytical Samples by Fraction
 
 Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for precursor molecular weight values vs. fraction (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
 
-```{r,fig.width=10, fig.height=3}
+```{r,fig.width=9.3, fig.height=2.8}
 g_all <- gg_points_frac_perc(filter(QCmetricsLongPrecMW_ALL, Percentile %in% c(5,25,50,75,95)),
                              y_string = "value",
                              x_string = "Fraction",
@@ -1308,150 +1101,12 @@ p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_sp
 subplot(p_all, p_id, margin=0.05)
 
 ```
-<br><br>
-<br><br>
 
-
-
-<!--
-
-## Precursor molecular weight for each analytical sample & fraction combination: [ by sample ]  [ box plot ]  [ same scale ]
-
-This boxplot shows the 5%,25%,50%,75%,95% for precursor molecular weight values across fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. 
-
-```{r,fig.width=10, fig.height=3}
-g_all <- gg_points_frac_perc(filter(QCmetricsLongPrecMW_ALL, Percentile %in% c(5,25,50,75,95)),
-                             y_string = "value",
-                             x_string = "analyticalBasename",   #  "Fraction", # 
-                             col_string = "analyticalBasename",
-                             group_string="analyticalBasename",
-                             label_string="`Analytical sample`",
-                             boxplot=TRUE,
-                             min_y=find_min(QCmetricsLongPrecMW_ALL, QCmetricsLongPrecMW_ID),
-                             max_y=find_max(QCmetricsLongPrecMW_ALL, QCmetricsLongPrecMW_ID))
-p_all <- ggplotly(g_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title_grid)
-
-g_id <- gg_points_frac_perc(filter(QCmetricsLongPrecMW_ID, Percentile %in% c(5,25,50,75,95)),
-                            y_string = "value",
-                            x_string = "analyticalBasename", # "Fraction",  change from analyticalBasename to Fraction
-                            col_string = "analyticalBasename",
-                            group_string="analyticalBasename",
-                            label_string="`Analytical sample`",
-                            boxplot=TRUE,
-                            min_y=find_min(QCmetricsLongPrecMW_ALL, QCmetricsLongPrecMW_ID),
-                            max_y=find_max(QCmetricsLongPrecMW_ALL, QCmetricsLongPrecMW_ID))
-p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title_grid)
-
-subplot(p_all, p_id, margin=0.05)
-
-```
-<br><br>
-<br><br>
-<br><br>
-
--->
-
-    
-# MS/MS Spectra per Cycle
-
-## MS/MS Spectra per Cycle for Analytical Samples by Fraction
-
-Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for MS/MS per MS1 values vs. fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. *Note: the missing points in 5% are due to missing (zero) precursor intensity values in the mzML file.*
-
-```{r,fig.width=10, fig.height=3}
-g_all <- gg_points_frac_perc(filter(QCmetricsLongMS2perMS_ALL, Percentile %in% c(5,25,50,75,95)),
-                             y_string = "value",
-                             x_string = "Fraction",
-                             col_string = "analyticalBasename",
-                             group_string="analyticalBasename",
-                             label_string="`Analytical sample`",
-                             min_y=find_min(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID),
-                             max_y=find_max(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID))
-p_all <- ggplotly(g_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title_grid)
-
-g_id <- gg_points_frac_perc(filter(QCmetricsLongMS2perMS_ID, Percentile %in% c(5,25,50,75,95)),
-                            y_string = "value",
-                            x_string = "Fraction",
-                            col_string = "analyticalBasename",
-                            group_string="analyticalBasename",
-                            label_string="`Analytical sample`",
-                            min_y=find_min(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID),
-                            max_y=find_max(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID))
-p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title_grid)
-
-subplot(p_all, p_id, margin=0.05)
-
-min.ms2perms1=find_min(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID)
-# if(min.ms2perms1==0){cat("The missing points in are due to missing (zero) precursor intensity values in the mzML file")}
-
-```
-<br><br>
-<br><br>
-
-
-
-<!--
-
-## Median of MS/MS per MS1 value for all MS/MS spectra
-This table presents the median MS/MS per MS1 value for each percentile (each column represents a different percentile and each row a different analytical sample). 
-
-```{r}
-
-## generate a table which will show the median of the value for each percentile
-
-find_median_table <-function(n){
-  
-  # Use B to define the different percentile we want in the table 
-  B = c(5,25,50,75,95)
-  
-  # generate the data frame we want to show in the table 
-  dataframetable = matrix(, nrow = length(analyticalSamples), ncol = length(B)) 
-  for (i in 1: length(analyticalSamples)){
-    for (j in 1:length(B)){ 
-      D <-subset(n , Percentile == B[j] & analyticalBasename == analyticalSamples[i],select=c(value))
-      dataframetable[i,j] <- median(D$value)
-    }
-    }
-  #QCPrecIntTable_ALL
-  colnames(dataframetable) <- c(paste0(B, rep("th Perc", 5)))
-  rownames(dataframetable) <- c(as.character(analyticalSamples))
-  kable(dataframetable, caption = "The median of MS/MS per MS1")# %>%
- # kable_styling(bootstrap_options = "striped") 
-  
-}
-
-
-find_median_table(QCmetricsLongMS2perMS_ALL)
-
-```
-
-<br><br>
-
-
-
-## Median of MS/MS per MS1 value for identified MS/MS spectra
-This table presents the median MS/MS per MS1 value for each percentile (each column represents a different percentile and each row a different analytical sample). 
-
-```{r}
-
-find_median_table(QCmetricsLongMS2perMS_ID)
-
-```
-
-<br><br>
-<br><br>
-<br><br>
-
--->
-
-  
-# Precursor Charge State
-  
-## Overall Precursor Charge State Distribution
+## - Overall Precursor Charge State Distribution
 
 Graphs show the proportion of charge states for MS/MS spectra (same scale for all and identified MS/MS spectra). Each charge state is represented by a different color.
-
-```{r, fig.width=10, fig.height=3}
+<!--
+```{r, fig.width=9.3, fig.height=2.8}
 
 
 min_ratio <- min(chargestateratio_ALL, chargestateratio_ID)
@@ -1483,21 +1138,148 @@ g_chargeratio_ID <- ggplot(Chargeratio_ID, aes(y=chargestateratio_ID, x=chargest
   theme(legend.position="none",
         plot.title = element_text(hjust=0.5))
 
-grid_arrange_shared_legend(g_chargeratio_all, g_chargeratio_ID, ncol=2)
+#grid_arrange_shared_legend(g_chargeratio_all, g_chargeratio_ID, ncol=2)
+#subplot(g_chargeratio_all, g_chargeratio_ID, margin=0.05)
+```
+<hr>
+<br>
+-->
 
+```{r,fig.height=3.4, fig.width=9}
+##Get plot of number of spectra
+g_cr_id <- gg_bars(Chargeratio_ID, 
+                          y_string="chargestateratio_ID", x_string="chargestate",
+                          col_string="chargestate", label_string="`Proportion`")
+p_cr_id <- ggplotly(g_cr_id, tooltip=c("label")) %>% layout(annotations=id_spect_title, legend=list(orientation = "h", x = 0.25, y = -0.5, xanchor = "left", yanchor = "bottom"))
+
+##Get plot of number of spectra
+g_cr_all <- gg_bars(Chargeratio_ALL, 
+                         y_string="chargestateratio_ALL", x_string="chargestate",
+                         col_string="chargestate", label_string="`Proportion`")
+p_cr_all <- ggplotly(g_cr_all, tooltip=c("label")) %>% layout(annotations=all_spect_title)
+
+subplot(style(p_cr_all, showlegend = FALSE), style(p_cr_id, showlegend = TRUE), margin=0.05)##, titleX=TRUE, titleY=TRUE)
+```
+<hr>
+<br>
+
+# - MS/MS Spectra
+
+## - Total MS/MS Spectra by Analytical Sample
+
+Graphs give the total number of MS/MS spectra for the sum of all fractions vs. analytical sample (separate scales for all and identified MS/MS spectra). Each sample represented by a different color.
+
+```{r,fig.height=2.8, fig.width=9}
+
+# get the max and the min number of MS2 spectra, including ALL and ID
+max_MS2 <- max(max(QCmetrics_AS$numofMS2_ALL_per_AS), max(QCmetrics_AS$numofMS2_ID_per_AS))
+min_MS2 <- min(min(QCmetrics_AS$numofMS2_ALL_per_AS), min(QCmetrics_AS$numofMS2_ID_per_AS))
+
+##Get plot of number of spectra
+g_MS2box_all <- gg_points(QCmetrics_AS, 
+                          y_string="numofMS2_ALL_per_AS", x_string="analyticalBasename",
+                          col_string="analyticalBasename", label_string="`Analytical sample`")
+p_MS2box_all <- ggplotly(g_MS2box_all, tooltip=c("label")) %>% layout(annotations=all_spect_title)
+
+##Get plot of number of spectra
+g_MS2box_id <- gg_points(QCmetrics_AS, 
+                         y_string="numofMS2_ID_per_AS", x_string="analyticalBasename",
+                         col_string="analyticalBasename", label_string="`Analytical sample`")
+p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label")) %>% layout(annotations=id_spect_title)
+
+subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
+```
+
+## - MS/MS Spectra for Fractions by Analytical Sample
+
+Graphs show boxplots of the number of MS/MS spectra for individual fraction vs. analytical sample (separate scales for all and identified MS/MS spectra). Each sample is represented by a different color.
+
+```{r, fig.width=9.3, fig.height=2.8}
+
+# get the max and the min number of MS2 spectra, including ALL and ID
+max_MS2 <- max(max(QCmetrics$numofMS2_ALL), max(QCmetrics$numofMS2_ID))
+min_MS2 <- min(min(QCmetrics$numofMS2_ALL), min(QCmetrics$numofMS2_ID))
+
+
+##Get boxplot of number of spectra across fractions
+g_MS2box_all <- gg_box(QCmetrics, y_string="numofMS2_ALL", x_string="analyticalBasename",
+                       col_string="analyticalBasename", label_string="`Analytical sample`")
+p_MS2box_all <- ggplotly(g_MS2box_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title)
+
+##Get boxplot of number of spectra across fractions
+g_MS2box_id <- gg_box(QCmetrics, y_string="numofMS2_ID", x_string="analyticalBasename",
+                      col_string="analyticalBasename", label_string="`Analytical sample`")
+p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title)
+
+subplot(p_MS2box_all,p_MS2box_id, margin=0.05)##, titleX=TRUE, titleY=TRUE)
+
+```
+
+## - MS/MS Spectra for Analytical Samples by Fraction
+
+Graphs shows a scatter plot of the number of MS/MS spectra for reach analytical sample vs. fraction (separate scales for all and identified MS/MS spectra). Each sample is represented by a different color. The grey area represents the 95% confidence interval for each sample when fitting the default smooth curves.
+
+```{r, fig.height=2.8, fig.width=9.3}
+g_MS2sca_all <- gg_points_frac(QCmetrics,
+                               y_string="numofMS2_ALL", x_string="Fraction",
+                               col_string="analyticalBasename",
+                               label_string = "`Analytical sample`",
+                               smooth=TRUE)
+p_MS2sca_all <- ggplotly(g_MS2sca_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title)
+
+g_MS2sca_id <- gg_points_frac(QCmetrics,
+                               y_string="numofMS2_ID", x_string="Fraction",
+                               col_string="analyticalBasename",
+                               label_string = "`Analytical sample`",
+                               smooth=TRUE)
+p_MS2sca_id <- ggplotly(g_MS2sca_id, tooltip=c("label","label2"))  %>% layout(annotations=id_spect_title)
+
+subplot(p_MS2sca_all, p_MS2sca_id, margin=0.05)
 
 
 ```
-<br><br>
-<br><br>
 
-# Peptides 
+## - MS/MS Spectra per Cycle for Analytical Samples by Fraction
 
-## MS/MS Distinct Peptides for Fractions by Analytical Sample
+Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for MS/MS per MS1 values vs. fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color. *Note: the missing points in 5% are due to missing (zero) precursor intensity values in the mzML file.*
+
+```{r,fig.width=9.3, fig.height=2.8}
+g_all <- gg_points_frac_perc(filter(QCmetricsLongMS2perMS_ALL, Percentile %in% c(5,25,50,75,95)),
+                             y_string = "value",
+                             x_string = "Fraction",
+                             col_string = "analyticalBasename",
+                             group_string="analyticalBasename",
+                             label_string="`Analytical sample`",
+                             min_y=find_min(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID),
+                             max_y=find_max(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID))
+p_all <- ggplotly(g_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title_grid)
+
+g_id <- gg_points_frac_perc(filter(QCmetricsLongMS2perMS_ID, Percentile %in% c(5,25,50,75,95)),
+                            y_string = "value",
+                            x_string = "Fraction",
+                            col_string = "analyticalBasename",
+                            group_string="analyticalBasename",
+                            label_string="`Analytical sample`",
+                            min_y=find_min(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID),
+                            max_y=find_max(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID))
+p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title_grid)
+
+subplot(p_all, p_id, margin=0.05)
+
+min.ms2perms1=find_min(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID)
+# if(min.ms2perms1==0){cat("The missing points in are due to missing (zero) precursor intensity values in the mzML file")}
+
+```
+<hr>
+<br>
+
+# - Protein Identification 
+
+## - Distinct Peptides for Fraction by Analytical Sample
 
 Graph shows box plot of the number of Distinct Peptide Counts across fraction vs. analytical sample. Each analytical sample is represented by a different color. 
 
-```{r,fig.height=3, fig.width=10}
+```{r}
 #(Jiahao)
 ##get total number of spectra per analytical sample
 numofPeptide_ID_per_AS <- tapply(QCmetrics$PeptideCount, INDEX=QCmetrics$analyticalBasename, FUN=sum)
@@ -1509,7 +1291,7 @@ QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasename
 
 ```
 
-```{r,fig.height=3, fig.width=10}
+```{r,fig.height=2.8, fig.width=9.1}
 
 # get the max and the min number of MS2 peptide counts, including ALL and ID
 max_MS2 <- max(QCmetrics$PeptideCount)
@@ -1524,14 +1306,12 @@ p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(ann
 subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
 
 ```
-<br><br>
 
-
-## Distinct Peptides for Analytical sample by Fraction
+## - Distinct Peptides for Analytical Sample by Fraction
 
 Graph shows scatter plot of the number of Distinct Peptide Counts across analytical sample vs. fractions. Each analytical sample is represented by a different color. 
 
-```{r,fig.height=5, fig.width=10}
+```{r,fig.height=3.3, fig.width=9.1}
 ## Boxplot by Fraction number 
 # Reorder Fraction Factor 
 #num = table(QCmetrics$analyticalBasenameIndex)[[1]]
@@ -1551,13 +1331,12 @@ p_DP_byF <- ggplotly(g_DP_byF, tooltip=c("label","label2")) %>% layout(annotatio
 #subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
 subplot(p_DP_byF, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
 ```
-<br><br>
 
-## Peptides Redundancy Plot for Analytical Sample by Fraction
+## - Peptides Redundancy Plot for Analytical Sample by Fraction
 
 Graph shows the scatter plot of the 5%,25%,50%,75%,95% for Peptides Redundancy values versus fractions. Each panel is a different percentile. Each analytical sample is represented by a different color. 
 
-```{r,fig.width=10, fig.height=3}
+```{r,fig.width=9.3, fig.height=3.3}
 g_id <- gg_points_frac_perc(filter(QCmetricsPeptideRd, Percentile %in% c(5,25,50,75,95)),
                             y_string = "value",
                             x_string = "Fraction",
@@ -1574,47 +1353,55 @@ p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=pepti
 subplot(p_id, margin=0.05)
 
 ```
-<br><br>
-<br><br>
 
+```{r, include=FALSE}
+# Cleaning the data
+col_selection <- grepl(".Unshared.Peptides$", names(SUmetrics))
+Spectral_table <- SUmetrics[col_selection]
 
+id_protein <- Spectral_table[,] >= 2
+id_protein <- data.frame(colSums(id_protein))
+colnames(id_protein) <- "ProteinCounts"
+id_protein$analyticalBasename <- rownames(id_protein)
 
-# Retention Time
+id_protein$analyticalBasenameLabel <- id_protein$analyticalBasename
+id_protein$analyticalBasenameFactor <- factor(id_protein$analyticalBasenameLabel)
+id_protein$analyticalBasenameIndex <- as.numeric(id_protein$analyticalBasenameFactor)
+id_protein$analyticalBasename <- id_protein$analyticalBasenameIndex
+ 
+id_protein$analyticalBasename <- as.character(id_protein$analyticalBasename)
+id_protein$analyticalBasename <- sprintf("%02s",id_protein$analyticalBasename)
+id_protein$`Analytical sample` <- id_protein$analyticalBasename
 
-## Retention Time Percentiles for Analytical Sample by Fraction
+total_p <- nrow(Spectral_table)
+```
 
-Graphs show scatter plots of the 5%,25%,50%,75%,95% percentiles for spectra retention time of each sample vs. fractions (same scale for all and identified MS/MS spectra). Each panel is a different percentile. Each analytical sample is represented by a different color.
+## - Identifided Protein for Analytical Sample
 
-```{r,fig.width=10, fig.height=3}
-g_all <- gg_points_frac_perc(filter(QCmetricsPeptideRT_ALL, Percentile %in% c(5,25,50,75,95)),
-                            y_string = "value",
-                            x_string = "Fraction",
-                            col_string = "analyticalBasename",
-                            group_string="analyticalBasename",
-                            label_string="`Analytical sample`",
-                            min_y=find_min(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID),
-                            #min_y = min(subset(QCmetricsPeptideRT_ALL, Percentile <= 95,select=c(value))),
-                            max_y=find_max(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID))
-                            #max_y = max(subset(QCmetricsPeptideRT_ALL, Percentile <= 95,select=c(value))))
+According to the <a href="`r basename(Summary_file)`" target="_blank"><b>`r basename(Summary_file)`</b></a>, there are **`r nrow(Spectral_table)`** proteins identifed. 
+Graphs give the number of unshared peptides for all analytical samples. Each sample represented by a different color.
 
-p_all <- ggplotly(g_all, tooltip=c("label","label2")) %>% layout(annotations=all_retention)
+```{r, fig.height=3.3, fig.width=9.1}
+# Generate the Plot 
+g_id_protein <- gg_points(id_protein, 
+                          y_string="ProteinCounts", x_string="analyticalBasename",
+                          col_string="analyticalBasename", label_string="`Analytical sample`")
+p_id_protein <- ggplotly(g_id_protein, tooltip=c("label")) %>% layout(annotations=protein_title)
 
-g_id <- gg_points_frac_perc(filter(QCmetricsPeptideRT_ID, Percentile %in% c(5,25,50,75,95)),
-                            y_string = "value",
-                            x_string = "Fraction",
-                            col_string = "analyticalBasename",
-                            group_string="analyticalBasename",
-                            label_string="`Analytical sample`",
-                            min_y=find_min(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID),
-                            #min_y = min(subset(QCmetricsPeptideRT_ID, Percentile <= 95,select=c(value))),
-                            max_y=find_max(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID))
-                            #max_y = max(subset(QCmetricsPeptideRT_ID, Percentile <= 95,select=c(value))))
-
-p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_retention)
-
-subplot(p_all, p_id, margin=0.05)
-
+subplot(p_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```
 
 
-  
+<!--Javascript-->
+<!--Show(scroll to left)/Hide(scroll to right) TOC-->
+<script>
+var lastPos = 0;
+$(window).scroll(function() {
+    var currPos = $(document).scrollLeft();
+    if (lastPos < currPos) 
+    {$('#TOC').css('opacity', 0);} 
+    if (lastPos > currPos) 
+    {$('#TOC').css('opacity', 1);}
+    lastPos = currPos;
+});
+</script>
