@@ -76,6 +76,7 @@ Summary_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.summ
 #QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t")
 QCmetrics <- read.table(paste0("~/Desktop/CPTAC_3 /Input/", QCmetrics_file), header=TRUE, sep="\t")
 SUmetrics <- read.table(paste0("~/Desktop/CPTAC_3 /Input/", Summary_file), header=TRUE, sep="\t", quote = "")
+tmt10_file <- files[grep("CPTAC3_Clear_Cell_Renal_Cell_Carcinoma_Proteome.tmt10.tsv",files)]
 
 # dim(QCmetrics)
 # head(QCmetrics)
@@ -536,6 +537,58 @@ QCmetricsPeptideRT_ID$`Analytical sample` <- QCmetricsPeptideRT_ID$analyticalBas
 QCmetricsPeptideRT_ID$Fraction <- QCmetricsPeptideRT_ID$Fraction
 ```
 
+```{r, include=FALSE}
+# Cleaning the Summary data
+col_selection <- grepl(".Unshared.Peptides$", names(SUmetrics))
+Spectral_table <- SUmetrics[col_selection]
+
+id_protein <- Spectral_table[,] >= 2
+id_protein <- data.frame(colSums(id_protein))
+colnames(id_protein) <- "ProteinCounts"
+id_protein$analyticalBasename <- rownames(id_protein)
+
+id_protein$analyticalBasenameLabel <- id_protein$analyticalBasename
+id_protein$analyticalBasenameFactor <- factor(id_protein$analyticalBasenameLabel)
+id_protein$analyticalBasenameIndex <- as.numeric(id_protein$analyticalBasenameFactor)
+id_protein$analyticalBasename <- id_protein$analyticalBasenameIndex
+ 
+id_protein$analyticalBasename <- as.character(id_protein$analyticalBasename)
+id_protein$analyticalBasename <- sprintf("%02s",id_protein$analyticalBasename)
+id_protein$`Analytical sample` <- id_protein$analyticalBasename
+
+total_p <- nrow(Spectral_table)
+```
+
+```{r, include=FALSE}
+# Cleaning the TMT10 data
+raw_edata <- read.table(paste0("~/Desktop/CPTAC_3 /Input/", tmt10_file), header=TRUE, sep="\t", row.names=1, quote="")
+
+# Subset the raw metrics 
+s_selection <- grepl("^(?=.*Log.Ratio)(?!.*Unshared)", names(raw_edata), perl = TRUE)
+#us_selection <- grepl(".Unshared.Log.Ratio$", names(raw_edata))
+
+s_metrics <- tail(raw_edata[,s_selection], -3)
+
+# Clean the metrics (remove NAs in s_metrics, keep ref_metrics as reference)
+ref_metrics <- s_metrics
+s_metrics <- s_metrics[complete.cases(s_metrics),]
+#us_metrics <- us_metrics[complete.cases(us_metrics),]
+
+# Construct pheno metrics (s_metrics)
+s_sample <- colnames(s_metrics)
+s_x <- c(1:(ncol(s_metrics)/9))
+s_batch <- rep(s_x, each=9)
+s_pheno <- data.frame(s_sample, s_batch, row.names=1)
+s_pheno$s_batch <- sprintf("%02d",s_pheno$s_batch)
+batch = as.factor(s_pheno$s_batch)
+#View(s_pheno)
+
+# Compute NAs in ref_metrics for PCA
+for(i in 1:nrow(ref_metrics)){
+  ref_metrics[i, is.na(ref_metrics[i,])] <- min(ref_metrics[i,], na.rm = TRUE)
+}
+```
+
 ```{r,include=FALSE}
 # generating a color Palettes for ggvis 
 # plotColorPalettes is the function for generating the pallettes, the colors in the palettes depends on the number we put in 
@@ -547,6 +600,9 @@ plotColorPalettes <- function(g){
   hcl(h = h, c = 100, l = 65)
 }
 plotcolor <- plotColorPalettes(length(analyticalSamples)) # the number of colors is the same as how many analytical smples in the data. 
+
+# Create color palette for isobaric label 
+iso_color = brewer.pal(9, 'Set1')
 ```
 
 ```{r include=FALSE}
@@ -633,6 +689,20 @@ peptide_rd <- list(
 # Add new layout annotation for Identified Protein
 protein_title <- list(
   text = "Unshared Peptide",
+  ##font = f,
+  xref = "paper",
+  yref = "paper",
+  yanchor = "bottom",
+  xanchor = "center",
+  align = "left",
+  x = 0.5,
+  y = 1.0,
+  showarrow = FALSE
+)
+
+# Add new layout annotation for PCA
+pca_title <- list(
+  text = "PCA",
   ##font = f,
   xref = "paper",
   yref = "paper",
@@ -938,7 +1008,7 @@ gg_bars <- function(data, y_string, x_string, col_string, label_string)
 <P/>
 Metrics: <a href="`r basename(QCmetrics_file)`" target="_blank"><b>`r basename(QCmetrics_file)`</b></a>
 
-# Experimental Design
+# - Experimental Design
 
 ```{r echo=FALSE,results='asis'}
 t <- table(QCmetrics$analyticalBasenameIndex)
@@ -1354,28 +1424,6 @@ subplot(p_id, margin=0.05)
 
 ```
 
-```{r, include=FALSE}
-# Cleaning the data
-col_selection <- grepl(".Unshared.Peptides$", names(SUmetrics))
-Spectral_table <- SUmetrics[col_selection]
-
-id_protein <- Spectral_table[,] >= 2
-id_protein <- data.frame(colSums(id_protein))
-colnames(id_protein) <- "ProteinCounts"
-id_protein$analyticalBasename <- rownames(id_protein)
-
-id_protein$analyticalBasenameLabel <- id_protein$analyticalBasename
-id_protein$analyticalBasenameFactor <- factor(id_protein$analyticalBasenameLabel)
-id_protein$analyticalBasenameIndex <- as.numeric(id_protein$analyticalBasenameFactor)
-id_protein$analyticalBasename <- id_protein$analyticalBasenameIndex
- 
-id_protein$analyticalBasename <- as.character(id_protein$analyticalBasename)
-id_protein$analyticalBasename <- sprintf("%02s",id_protein$analyticalBasename)
-id_protein$`Analytical sample` <- id_protein$analyticalBasename
-
-total_p <- nrow(Spectral_table)
-```
-
 ## - Identifided Protein for Analytical Sample
 
 According to the <a href="`r basename(Summary_file)`" target="_blank"><b>`r basename(Summary_file)`</b></a>, there are **`r nrow(Spectral_table)`** proteins identifed. 
@@ -1390,7 +1438,51 @@ p_id_protein <- ggplotly(g_id_protein, tooltip=c("label")) %>% layout(annotation
 
 subplot(p_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```
+<hr>
+<br>
 
+# - Batch Effect Analysis
+
+## - PCA plot by Analytical Sample
+
+Graph shows the cluster pattern determined by the first two principal components. Each sample represented by a different color.
+
+```{r, fig.width=9, fig.height=9.5}
+# Generate the Plot 
+test_batch <- as.data.frame(t(ref_metrics))
+test_pca <- prcomp(test_batch, scale.=TRUE)
+
+df_out <- as.data.frame(test_pca$x)
+df_out$`Analytical sample` <- batch
+percentage <- round(test_pca$sdev / sum(test_pca$sdev) * 100, 2)
+percentage <- paste( colnames(df_out), "(", paste( as.character(percentage), "%", ")", sep="") )
+x_per <- list(title = percentage[1], titlefont = list(size = 13))
+y_per <- list(title = percentage[2], titlefont = list(size = 13))
+p<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Analytical sample` ))
+p<-p+geom_point()
+
+p_pca_b <- ggplotly(p, tooltip=c("colour")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE)
+  # , legend=list(orientation = "v",x = 5, y = 4, xanchor = "left", yanchor = "bottom"))
+
+p_pca_b
+```
+
+## - PCA plot by Isobaric Label 
+
+According to the <a href="`r basename(tmt10_file)`" target="_blank"><b>`r basename(tmt10_file)`</b></a>, Each analytical sample contains *9* biological samples labeled by TMT10. Graph shows the cluster pattern determined by the first two principal components. Each isobaric label represented by a different color.
+
+```{r, fig.width=9, fig.height=9.5}
+# Generate index of isobaric label 
+iso_lab <- rep(c(1:9), 18)
+df_out$`Isobaric Label` <- as.factor(iso_lab)
+
+# Generate the plot
+p2<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Isobaric Label`))
+p2<-p2+geom_point()+scale_colour_manual(values=iso_color)
+p_pca_b2 <- ggplotly(p2, tooltip=c("colour")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=TRUE , legend=list(orientation = "h", x = 0.18, y = -0.15, xanchor = "left", yanchor = "bottom"))
+
+p_pca_b2
+```
 
 <!--Javascript-->
 <!--Show(scroll to left)/Hide(scroll to right) TOC-->
