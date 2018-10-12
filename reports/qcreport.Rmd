@@ -8,7 +8,7 @@ params:
   peptidefile: inputfilename.tsv
   quantfile: inputfilename.tsv
   format: html_document
-  debug: true
+  debug: false
 output:
   html_document:
     number_sections: yes
@@ -1667,20 +1667,31 @@ PCA analysis of quantiation matrix with biological samples colored by analytical
 
 ```{r, fig.width=9, fig.height=7.5}
 # Generate the Plot 
-test_batch <- as.data.frame(t(ref_metrics))
+test_batch <- as.data.frame(t(s_metrics))  # Use matrix without NAs
 test_pca <- prcomp(test_batch, scale.=TRUE)
 
 df_out <- as.data.frame(test_pca$x)
 df_out$`Analytical sample` <- batch
+<<<<<<< HEAD
 df_out$`Ratio` <- s_sample;
+=======
+df_out$`Biological label` <- gsub('\\..*', '',rownames(df_out))
+>>>>>>> bbfebcacb04e8d8a6b22f8798833c75a1db6252a
 percentage <- round(test_pca$sdev / sum(test_pca$sdev) * 100, 2)
 percentage <- paste( colnames(df_out), "(", paste( as.character(percentage), "%", ")", sep="") )
 x_per <- list(title = percentage[1], titlefont = list(size = 13))
 y_per <- list(title = percentage[2], titlefont = list(size = 13))
+<<<<<<< HEAD
 p<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Analytical sample`,label=`Ratio`,label2=`Analytical sample`))
 p<-p+geom_point()
 
 p_pca_b <- ggplotly(p, tooltip=c("label","label2")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE)
+=======
+p<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Analytical sample`, text = paste('Biological sample:', `Biological label`)))
+p<-p+geom_point()
+
+p_pca_b <- ggplotly(p, tooltip=c("text")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE)
+>>>>>>> bbfebcacb04e8d8a6b22f8798833c75a1db6252a
   # , legend=list(orientation = "v",x = 5, y = 4, xanchor = "left", yanchor = "bottom"))
 
 p_pca_b
@@ -1697,9 +1708,15 @@ df_out$`Isobaric Label` <- as.factor(iso_lab)
 df_out$`Ratio Index` <- as.factor(iso_lab)
 
 # Generate the plot
+<<<<<<< HEAD
 p2<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Isobaric Label`,label=`Ratio`,label2=`Ratio Index`))
 p2<-p2+geom_point()+scale_colour_manual(values=iso_color)
 p_pca_b2 <- ggplotly(p2, tooltip=c("label","label2")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE , legend=list(orientation = "h", x = 0.18, y = -0.15, xanchor = "left", yanchor = "bottom"))
+=======
+p2<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Isobaric Label`, text = paste('Biological sample:', `Biological label`)))
+p2<-p2+geom_point()+scale_colour_manual(values=iso_color)
+p_pca_b2 <- ggplotly(p2, tooltip=c("text")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE , legend=list(orientation = "h", x = 0.18, y = -0.15, xanchor = "left", yanchor = "bottom"))
+>>>>>>> bbfebcacb04e8d8a6b22f8798833c75a1db6252a
 
 p_pca_b2
 ```
