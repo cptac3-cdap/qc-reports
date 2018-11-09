@@ -7,8 +7,9 @@ params:
   summaryfile: inputfilename.tsv
   peptidefile: inputfilename.tsv
   quantfile: inputfilename.tsv
+  mayufile: inputfilename.tsv
   format: html_document
-  debug: false
+  debug: true
 output:
   html_document:
     number_sections: yes
@@ -72,11 +73,13 @@ QCmetrics_file <- params$qcmetricsfile
 Summary_file <- params$summaryfile
 Peptide_file <- params$peptidefile
 tmt10_file <- params$quantfile
+mayu_file <- params$mayufile
 
 QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t", quote = "")
 SUmetrics <- read.table(Summary_file,   header=TRUE, sep="\t", quote = "")
 PEmetrics <- read.table(Peptide_file,   header=TRUE, sep="\t", quote = "")
-
+MYmetrics <- read.table(mayu_file,   sep="\t", quote = "")
+mylog(MYmetrics)
 
 ##rename "fractionNum" to "Fraction"
 QCmetrics <- rename(QCmetrics, Fraction=fractionNum)
@@ -536,6 +539,7 @@ QCmetricsPeptideRT_ID$Fraction <- QCmetricsPeptideRT_ID$Fraction
 ```{r, include=FALSE}
 # Cleaning the Summary data
 col_selection <- grepl(".Unshared.Peptides$", names(SUmetrics))
+
 Spectral_table <- SUmetrics[col_selection]
 
 id_protein <- Spectral_table[,] >= 2
@@ -601,9 +605,6 @@ if (sum(grepl("^Median$",rownames(raw_edata))) > 0) {
 }
 
 orig_s_metrics <- s_metrics
-
-mylog(rownames(s_metrics))
-mylog(colnames(s_metrics))
 
 stopifnot(ncol(s_metrics) %% ncol(Spectral_table) == 0)
 
@@ -913,11 +914,13 @@ percentage_table <- function(kind, n)
 ```{r}
 # Define plot function (Jiahao)
 gg_points <- function(data, y_string, x_string,
-                      col_string, label_string, 
+                      col_string, label_string, label2_string="",
 		      min_y=NULL, max_y=NULL, 
 	              sparse_x_labels=0)
 {
-
+  if (label2_string == "") {
+    label2_string = y_string;
+  }
   data.original.level=as.vector(unique(data[, x_string]))
   break.points=as.numeric(unique(data[, x_string]))
   new.break.points=break.points
@@ -931,7 +934,8 @@ gg_points <- function(data, y_string, x_string,
   b <- ggplot(data, aes_string(y=y_string, 
                                x=x_string, 
         	               col=col_string, 
-                               label=label_string)) +
+                               label=label_string, 
+                               label2=label2_string)) +
        geom_point() +
        scale_x_discrete(breaks = data.original.level[new.break.points], 
                         labels = data.original.level[new.break.points]) + 
@@ -1061,7 +1065,8 @@ gg_points_frac <- function(data, y_string, x_string,
 
 gg_points_frac_perc <- function(data, y_string, x_string,
                                 col_string, group_string,
-                                label_string, label2_string="Fraction",
+                                label_string, 
+				label2_string="Fraction",
                                 boxplot=FALSE,
                                 same_scale=TRUE, min_y=NULL, max_y=NULL,sparse_x_labels=0)
 {
@@ -1161,6 +1166,11 @@ stopifnot(nFiles == (nAnalyticalSamples * nFractionsPerAS))
 
 # proteins identified
 nProteins = nrow(SUmetrics)
+nProteins1 = cum_id_protein[nrow(all_id_protein),1]
+nCommonProteins = all_id_protein[nrow(all_id_protein),1]
+
+protfdr = as.character(MYmetrics[[5]])
+protfdr = paste0(as.character(as.numeric(substr(protfdr,1,nchar(protfdr)-1))),"%")
 
 # peptides identified? 
 nPeptides = length(unique(PEmetrics$Peptide))
@@ -1202,9 +1212,9 @@ headers = c(samples_ratios,
 	    "Fractions per Analytical Sample",
             "Spectral Datafiles",
 	    "MS/MS Spectra",
-	    "Identified MS/MS Spectra",
+	    "Identified MS/MS Spectra (1% FDR)",
 	    "Peptides",
-	    "Proteins")
+	    paste0("Proteins"," (",protfdr," FDR)"))
 values =   c(nSamples,
 	     protocol,
 	     proteome,
@@ -1239,7 +1249,7 @@ Number of identified proteins by analytical sample.
 g_id_protein <- gg_points(id_protein, 
                           y_string="ProteinCounts", x_string="analyticalBasename",
                           col_string="analyticalBasename", label_string="`Analytical sample`",min_y=0) 
-p_id_protein <- ggplotly(g_id_protein, tooltip=c("label")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
+p_id_protein <- ggplotly(g_id_protein, tooltip=c("label","label2")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
 
 subplot(p_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```
@@ -1252,8 +1262,8 @@ Cumulative number of identified proteins by analytical sample.
 # Generate the Plot 
 g_cum_id_protein <- gg_points(cum_id_protein, 
                           y_string="ProteinCounts", x_string="analyticalBasename",
-                          col_string="analyticalBasename", label_string="`Analytical sample`",min_y=0) 
-p_cum_id_protein <- ggplotly(g_cum_id_protein, tooltip=c("label")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
+                          col_string="analyticalBasename", label_string="`Analytical sample`",label2_string="ProteinCounts",min_y=0) 
+p_cum_id_protein <- ggplotly(g_cum_id_protein, tooltip=c("label","label2")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
 
 subplot(p_cum_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```
@@ -1266,8 +1276,8 @@ Number of identified proteins in common by analytical sample.
 # Generate the Plot 
 g_all_id_protein <- gg_points(all_id_protein, 
                           y_string="ProteinCounts", x_string="analyticalBasename",
-                          col_string="analyticalBasename", label_string="`Analytical sample`",min_y=0) 
-p_all_id_protein <- ggplotly(g_all_id_protein, tooltip=c("label")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
+                          col_string="analyticalBasename", label_string="`Analytical sample`",label2_string="ProteinCounts",min_y=0) 
+p_all_id_protein <- ggplotly(g_all_id_protein, tooltip=c("label","label2")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
 
 subplot(p_all_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 ```

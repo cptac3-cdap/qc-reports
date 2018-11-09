@@ -14,6 +14,7 @@ QCmetrics_file <- args[1]
 Base_filename <- sub(".qcmetrics.tsv","",QCmetrics_file)
 Summary_file <- paste0(Base_filename,".summary.tsv",sep="")
 Peptide_file <- paste0(Base_filename,".peptides.tsv",sep="")
+Mayu_file <- paste0(Base_filename,".mayu.tsv",sep="")
 
 types  = c("",".phosphosite",".phosphopeptide",".peptide")
 rawopt = c("","-raw")
@@ -53,6 +54,7 @@ renderparams <- list(qcmetricsfile = QCmetrics_file,
                      summaryfile = Summary_file,
 	             peptidefile = Peptide_file,
                      quantfile = Quant_file,
+                     mayufile = Mayu_file,
 	             format = outformat) 
 # print(renderparams)
 rmarkdown::render(file.path(work.dir,'qcreport.Rmd'),
