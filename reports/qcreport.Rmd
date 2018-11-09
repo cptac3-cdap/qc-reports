@@ -9,7 +9,7 @@ params:
   quantfile: inputfilename.tsv
   mayufile: inputfilename.tsv
   format: html_document
-  debug: true
+  debug: false
 output:
   html_document:
     number_sections: yes
@@ -79,7 +79,6 @@ QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t", quote = "")
 SUmetrics <- read.table(Summary_file,   header=TRUE, sep="\t", quote = "")
 PEmetrics <- read.table(Peptide_file,   header=TRUE, sep="\t", quote = "")
 MYmetrics <- read.table(mayu_file,   sep="\t", quote = "")
-mylog(MYmetrics)
 
 ##rename "fractionNum" to "Fraction"
 QCmetrics <- rename(QCmetrics, Fraction=fractionNum)
@@ -540,15 +539,17 @@ QCmetricsPeptideRT_ID$Fraction <- QCmetricsPeptideRT_ID$Fraction
 # Cleaning the Summary data
 col_selection <- grepl(".Unshared.Peptides$", names(SUmetrics))
 
-Spectral_table <- SUmetrics[col_selection]
+Spectral_table <- SUmetrics[ , col_selection, drop=FALSE ]
 
-id_protein <- Spectral_table[,] >= 2
+id_protein <- Spectral_table[ , , drop=FALSE ] >= 2
 
 cum_id_protein <- id_protein
 all_id_protein <- id_protein
-for(i in 2:ncol(cum_id_protein)) {
-  cum_id_protein[,i] = (cum_id_protein[,i]|cum_id_protein[,(i-1)])
-  all_id_protein[,i] = (all_id_protein[,i]&all_id_protein[,(i-1)])
+if (ncol(cum_id_protein)>1) {
+  for(i in 2:ncol(cum_id_protein)) {
+    cum_id_protein[,i] = (cum_id_protein[,i]|cum_id_protein[,(i-1)])
+    all_id_protein[,i] = (all_id_protein[,i]&all_id_protein[,(i-1)])
+  }
 }
 
 id_protein <- data.frame(colSums(id_protein))
