@@ -9,7 +9,8 @@ params:
   quantfile: inputfilename.tsv
   mayufile: inputfilename.tsv
   format: html_document
-  debug: false
+  debug: true
+  dochecks: false
 output:
   html_document:
     number_sections: yes
@@ -68,6 +69,8 @@ mylog <- function(s) {
   }
 }
 file.remove('debug.log')
+
+# mylog(params)
 
 QCmetrics_file <- params$qcmetricsfile
 Summary_file <- params$summaryfile
@@ -579,6 +582,7 @@ total_p <- nrow(Spectral_table)
 ```{r, include=FALSE}
 # Cleaning the TMT10 data
 raw_edata <- read.table(tmt10_file, header=TRUE, sep="\t", row.names=1, quote="")
+# mylog(raw_edata)
 
 # Subset the raw metrics 
 
@@ -595,25 +599,44 @@ if (sum(s_selection,na.rm=TRUE) == 0) {
   samples_ratios = 'Computed Ratios'
 }
 
+# mylog(s_selection)
+# mylog(sum(s_selection,na.rm=TRUE))
+
+# Spectral counts headers:
+if (sum(s_selection,na.rm=TRUE) == 0) {    
+  not_selection <- grepl("^Total\\.", names(raw_edata), perl = TRUE)
+  us_selection <- grepl("\\.Unshared\\.Spectral\\.Counts$", names(raw_edata), perl = TRUE)
+  s_selection <- grepl("\\.Spectral\\.Counts$", names(raw_edata), perl = TRUE)
+  s_selection <- (s_selection&(!(us_selection)));
+  s_selection <- (s_selection&(!(not_selection)));
+  us_selection <- (us_selection&(!(not_selection)));
+  samples_ratios = 'Biological Samples'
+}
+
 if (sum(us_selection,na.rm=TRUE) > 0) {
   stopifnot(sum(s_selection,na.rm=TRUE) == sum(us_selection,na.rm=TRUE))
 }
 
 if (sum(grepl("^Median$",rownames(raw_edata))) > 0) {
-  s_metrics <- tail(raw_edata[,s_selection], -3)
+  s_metrics <- tail(raw_edata[,s_selection,drop=FALSE], -3)
+} else if (sum(grepl("^Total$",rownames(raw_edata))) > 0) {
+  s_metrics <- head(raw_edata[,s_selection,drop=FALSE], -1)
 } else {
-  s_metrics <- raw_edata[,s_selection]
+  s_metrics <- raw_edata[,s_selection,drop=FALSE]
 }
 
 orig_s_metrics <- s_metrics
 
+mylog(c(ncol(s_metrics),ncol(Spectral_table)))
 stopifnot(ncol(s_metrics) %% ncol(Spectral_table) == 0)
 
 samples_per_analyticalsample = as.integer(ncol(s_metrics)/ncol(Spectral_table))
 
 # Clean the metrics (remove NAs in s_metrics, keep ref_metrics as reference)
 ref_metrics <- s_metrics
-s_metrics <- s_metrics[complete.cases(s_metrics),]
+# mylog(s_metrics)
+s_metrics <- s_metrics[complete.cases(s_metrics),,drop=FALSE]
+# mylog(s_metrics)
 
 
 # Construct pheno metrics (s_metrics)
@@ -1163,7 +1186,10 @@ nFractionsPerAS = length(unique(QCmetrics$Fraction))
 nFiles = nrow(QCmetrics)
 
 # Check!
-stopifnot(nFiles == (nAnalyticalSamples * nFractionsPerAS))
+if (params$dochecks) {
+  mylog(c(nFiles,nAnalyticalSamples,nFractionsPerAS))
+  stopifnot(nFiles == (nAnalyticalSamples * nFractionsPerAS))
+}
 
 # proteins identified
 nProteins = nrow(SUmetrics)
@@ -1183,7 +1209,10 @@ nSamples = ncol(s_metrics)
 nSamplesPerAS = samples_per_analyticalsample
 
 # Check!
-stopifnot(nSamplesPerAS * nAnalyticalSamples == nSamples)
+if (params$dochecks) {
+  mylog(c(nSamplesPerAS,nAnalyticalSamples,nSamples))
+  stopifnot(nSamplesPerAS * nAnalyticalSamples == nSamples)
+}
 
 nMSMSSpectra = sum(QCmetrics$numofMS2_ALL)
 nMSMSSpectraID = sum(QCmetrics$numofMS2_ID)
@@ -1194,12 +1223,15 @@ if (regexpr("\\.tmt10(-raw)?\\.tsv$",tmt10_file) != -1) {
     protocol = 'TMT-11'
 } else if (regexpr("\\.itraq\\.tsv$",tmt10_file) != -1) {
     protocol = 'iTRAQ-4'
+} else if (regexpr("\\.spectral_counts\\.tsv$",tmt10_file) != -1) {
+    protocol = 'Label-free'
 }
 
 if (regexpr("\\.phospho",tmt10_file) != -1) {
     proteome = "Phosphoproteome"
     # Assumes we have phosphosites as the quantitation file
     nPhosphoSites = nrow(orig_s_metrics)
+    # mylog(tmt10_file)
     stopifnot(regexpr("\\.phosphosite\\.",tmt10_file)>=0)
 } else {
     proteome = "Whole Proteome"
@@ -1237,6 +1269,16 @@ summary_table <- matrix(values, ncol = 1)
 rownames(summary_table) <- headers
 kable(summary_table, align = 'r') %>% kable_styling(bootstrap_options = c("striped","hover"),full_width = F, position="left") %>% column_spec(1, bold = T) 
 
+```
+# - Analytical Samples
+```{r echo=FALSE,results='asis'}
+t <- table(QCmetrics$analyticalBasenameIndex)
+mat_t <- matrix(NA, ncol=3, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
+mat_t[,1] <- sprintf("%02d",1:length(levels(QCmetrics$analyticalBasenameFactor)))
+mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
+mat_t[,3] <- as.matrix(t)[,1]
+colnames(mat_t) <- c("Index","Analytical sample", "Fractions")
+kable(mat_t) %>% kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, position="left")
 ```
 
 # - Proteins 
@@ -1669,53 +1711,12 @@ p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_sp
 subplot(p_all, p_id, margin=0.05)
 
 ```
-
-# - Batch Effects
-
-## - Analytical Sample Batch Effect
-
-PCA analysis of quantiation matrix with biological samples colored by analytical sample. 
-
-```{r, fig.width=9, fig.height=7.5}
-# Generate the Plot 
-test_batch <- as.data.frame(t(s_metrics))  # Use matrix without NAs
-test_pca <- prcomp(test_batch, scale.=TRUE)
-
-df_out <- as.data.frame(test_pca$x)
-df_out$`Analytical sample` <- batch
-df_out$`Ratio` <- s_sample;
-percentage <- round(test_pca$sdev / sum(test_pca$sdev) * 100, 2)
-percentage <- paste( colnames(df_out), "(", paste( as.character(percentage), "%", ")", sep="") )
-x_per <- list(title = percentage[1], titlefont = list(size = 13))
-y_per <- list(title = percentage[2], titlefont = list(size = 13))
-p<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Analytical sample`,label=`Ratio`,label2=`Analytical sample`))
-p<-p+geom_point()
-
-p_pca_b <- ggplotly(p, tooltip=c("label","label2")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE)
-  # , legend=list(orientation = "v",x = 5, y = 4, xanchor = "left", yanchor = "bottom"))
-
-p_pca_b
+```{r, child = if (nSamples > 2 | protocol != 'Label-free') 'batchhdr.Rmd' else 'empty.Rmd'} 
 ```
-
-## - Isobaric Label Batch Effect 
-
-PCA analysis of quantiation matrix with biological samples colored by isobaric label.
-
-```{r, fig.width=9, fig.height=7.5}
-# Generate index of isobaric label 
-iso_lab <- rep(c(1:samples_per_analyticalsample), nAnalyticalSamples)
-df_out$`Isobaric Label` <- as.factor(iso_lab)
-df_out$`Ratio Index` <- as.factor(iso_lab)
-
-# Generate the plot
-p2<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Isobaric Label`,label=`Ratio`,label2=`Ratio Index`))
-p2<-p2+geom_point()+scale_colour_manual(values=iso_color)
-p_pca_b2 <- ggplotly(p2, tooltip=c("label","label2")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE , legend=list(orientation = "h", x = 0.18, y = -0.15, xanchor = "left", yanchor = "bottom"))
-
-
-p_pca_b2
+```{r, child = if (nSamples > 2) 'analsamp.Rmd' else 'empty.Rmd'} 
 ```
-
+```{r, child = if (protocol != 'Label-free') 'isolabels.Rmd' else 'empty.Rmd'} 
+```
 
 <font size="2">*For more information about **Plotly Modebar**, click <a href="https://help.plot.ly/getting-to-know-the-plotly-modebar/" target="_blank"><b>here</b></a>.*</font>
 

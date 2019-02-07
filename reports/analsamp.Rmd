@@ -1,0 +1,25 @@
+
+## - Analytical Sample Batch Effect
+
+PCA analysis of quantiation matrix with biological samples colored by analytical sample.
+
+```{r, fig.width=9, fig.height=7.5}
+# Generate the Plot 
+test_batch <- as.data.frame(t(s_metrics))  # Use matrix without NAs
+test_pca <- prcomp(test_batch, scale.=TRUE)
+
+df_out <- as.data.frame(test_pca$x)
+df_out$`Analytical sample` <- batch
+df_out$`Ratio` <- s_sample;
+percentage <- round(test_pca$sdev / sum(test_pca$sdev) * 100, 2)
+percentage <- paste( colnames(df_out), "(", paste( as.character(percentage), "%", ")", sep="") )
+x_per <- list(title = percentage[1], titlefont = list(size = 13))
+y_per <- list(title = percentage[2], titlefont = list(size = 13))
+p<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Analytical sample`,label=`Ratio`,label2=`Analytical sample`))
+p<-p+geom_point()
+
+p_pca_b <- ggplotly(p, tooltip=c("label","label2")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE)
+  # , legend=list(orientation = "v",x = 5, y = 4, xanchor = "left", yanchor = "bottom"))
+
+p_pca_b
+```

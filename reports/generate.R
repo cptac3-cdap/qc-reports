@@ -18,7 +18,7 @@ Mayu_file <- paste0(Base_filename,".mayu.tsv",sep="")
 
 types  = c("",".phosphosite",".phosphopeptide",".peptide")
 rawopt = c("","-raw")
-labels = c("tmt10","tmt11","itraq")
+labels = c("tmt10","tmt11","itraq","spectral_counts","precursor_area")
 
 for (type in types) {
   for (raw in rawopt) {
@@ -41,8 +41,17 @@ stopifnot(file.exists(Quant_file))
 
 report_file <- args[2]
 
+extraparams = list(dochecks=FALSE)
+if (length(args) > 2) {
+  for (i in 3:length(args)) {
+      extraparams[args[i]] = TRUE
+  } 
+}
+
 work.dir <- dirname(report_file)
-dummy <- file.copy(c(file.path(this.dir,"qcreport.Rmd")),work.dir);
+for (rmd in Sys.glob(file.path(this.dir,"*.Rmd"))) {
+    dummy <- file.copy(rmd,work.dir)
+}
 
 if (endsWith(report_file,'.pdf') == TRUE) {
     outformat <- 'pdf_document'
@@ -55,8 +64,9 @@ renderparams <- list(qcmetricsfile = QCmetrics_file,
 	             peptidefile = Peptide_file,
                      quantfile = Quant_file,
                      mayufile = Mayu_file,
-	             format = outformat) 
-# print(renderparams)
+	             format = outformat,
+		     dochecks = extraparams$dochecks) 
+
 rmarkdown::render(file.path(work.dir,'qcreport.Rmd'),
                   output_format = outformat, 
                   params = renderparams,

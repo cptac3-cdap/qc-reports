@@ -2,6 +2,11 @@
 
 DIR=`dirname $0`
 
+if [ "$1" = "--dochecks" ]; then
+  DOCHECKS="dochecks"
+  shift;
+fi
+
 for a in "$@"; do
   echo "Processing $a..."
   a=`readlink -f "$a"`
@@ -9,6 +14,6 @@ for a in "$@"; do
   b=`basename $a .tsv`
   c="$e/$b.html"
   d="$e/$b.pdf"
-  Rscript $DIR/generate.R "$a" "$c" || exit 1
+  Rscript $DIR/generate.R "$a" "$c" $DOCHECKS || exit 1
   # Rscript $DIR/generate.R "$a" "$d"
 done
