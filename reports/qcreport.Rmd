@@ -670,7 +670,7 @@ plotColorPalettes <- function(g){
 plotcolor <- plotColorPalettes(length(analyticalSamples)) # the number of colors is the same as how many analytical smples in the data. 
 
 # Create color palette for isobaric label 
-iso_color = brewer.pal(9, 'Set1')
+iso_color = brewer.pal(samples_per_analyticalsample, 'Paired')
 ```
 
 ```{r include=FALSE}
@@ -1221,6 +1221,8 @@ if (regexpr("\\.tmt10(-raw)?\\.tsv$",tmt10_file) != -1) {
     protocol = 'TMT-10'
 } else if (regexpr("\\.tmt11(-raw)?\\.tsv$",tmt10_file) != -1) {
     protocol = 'TMT-11'
+} else if (regexpr("\\.tmt6(-raw)?\\.tsv$",tmt10_file) != -1) {
+    protocol = 'TMT-6'
 } else if (regexpr("\\.itraq\\.tsv$",tmt10_file) != -1) {
     protocol = 'iTRAQ-4'
 } else if (regexpr("\\.spectral_counts\\.tsv$",tmt10_file) != -1) {
@@ -1373,7 +1375,7 @@ g_DP_byF <- gg_points_frac(QCmetrics,
                                y_string="PeptideCount", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
-                               smooth=TRUE) + 
+                               smooth=ifelse(nFractionsPerAS>2,TRUE,FALSE)) + 
 	    theme(plot.margin = margin(0.2, 1.0, 0.2, 0.3, "cm"))
 p_DP_byF <- ggplotly(g_DP_byF, tooltip=c("label","label2")) %>% layout(annotations=peptide_title) %>% layout(annotations=fr_title)
 
@@ -1451,7 +1453,7 @@ g_MS2sca_all <- gg_points_frac(QCmetrics,
                                y_string="numofMS2_ALL", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
-                               smooth=TRUE,sparse_x_label=4) +
+                               smooth=ifelse(nFractionsPerAS>2,TRUE,FALSE),sparse_x_label=4) +
 	        theme(plot.margin = margin(0.2, 1.0, 0.2, 0.5, "cm"))
 p_MS2sca_all <- ggplotly(g_MS2sca_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title) %>% layout(annotations=fr_title)
 
@@ -1459,7 +1461,7 @@ g_MS2sca_id <- gg_points_frac(QCmetrics,
                                y_string="numofMS2_ID", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
-                               smooth=TRUE,sparse_x_label=4) +
+                               smooth=ifelse(nFractionsPerAS>2,TRUE,FALSE),sparse_x_label=4) +
 	        theme(plot.margin = margin(0.2, 1.0, 0.2, 0.5, "cm"))
 p_MS2sca_id <- ggplotly(g_MS2sca_id, tooltip=c("label","label2"))  %>% layout(annotations=id_spect_title) %>% layout(annotations=fr_title)
 
@@ -1715,7 +1717,7 @@ subplot(p_all, p_id, margin=0.05)
 ```
 ```{r, child = if (nSamples > 2) 'analsamp.Rmd' else 'empty.Rmd'} 
 ```
-```{r, child = if (protocol != 'Label-free') 'isolabels.Rmd' else 'empty.Rmd'} 
+```{r, child = if (protocol != 'Label-free') 'labels.Rmd' else 'empty.Rmd'} 
 ```
 
 <font size="2">*For more information about **Plotly Modebar**, click <a href="https://help.plot.ly/getting-to-know-the-plotly-modebar/" target="_blank"><b>here</b></a>.*</font>
