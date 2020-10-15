@@ -15,8 +15,9 @@ Base_filename <- sub(".qcmetrics.tsv","",QCmetrics_file)
 Summary_file <- paste0(Base_filename,".summary.tsv",sep="")
 Peptide_file <- paste0(Base_filename,".peptides.tsv",sep="")
 Mayu_file <- paste0(Base_filename,".mayu.tsv",sep="")
+expdes_file <- paste0(Base_filename,".sample.csv",sep="")
 
-types  = c("",".phosphosite",".phosphopeptide",".peptide")
+types  = c("",".phosphosite",".acetylsite",".ubiquitylsite",".glycosite",".phosphopeptide",".acetylpeptide","ubiquitylpeptide",".glycopeptide",".peptide")
 rawopt = c("","-raw")
 labels = c("tmt10","tmt11","tmt6","itraq","spectral_counts","precursor_area")
 
@@ -64,6 +65,7 @@ renderparams <- list(qcmetricsfile = QCmetrics_file,
 	             peptidefile = Peptide_file,
                      quantfile = Quant_file,
                      mayufile = Mayu_file,
+		     expdesfile = expdes_file,
 	             format = outformat,
 		     dochecks = extraparams$dochecks) 
 

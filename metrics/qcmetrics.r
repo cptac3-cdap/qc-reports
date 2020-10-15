@@ -122,7 +122,7 @@
                         # "_" delimited chunk. Add other special cases as needed...
 
                         last_chunk=base.name.strsplit[length(base.name.strsplit)]
-                        fraction.num=type.convert(gsub("^[^0-9]*([0-9]+|A)$","\\1",last_chunk),as.is=TRUE)
+                        fraction.num=type.convert(gsub("^[^0-9]*([0-9]+|[A-Z])$","\\1",last_chunk),as.is=TRUE)
 
 			## mzml.data -> unique(scan.ids)
 			info.lists=c("msLevel", "precursorCharge", "precursorIntensity", "precursorMZ","retentionTime")

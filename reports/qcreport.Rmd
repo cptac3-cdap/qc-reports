@@ -8,6 +8,7 @@ params:
   peptidefile: inputfilename.tsv
   quantfile: inputfilename.tsv
   mayufile: inputfilename.tsv
+  expdesfile: inputfilename.tsv
   format: html_document
   debug: true
   dochecks: false
@@ -77,14 +78,35 @@ Summary_file <- params$summaryfile
 Peptide_file <- params$peptidefile
 tmt10_file <- params$quantfile
 mayu_file <- params$mayufile
+expdes_file <- params$expdesfile
 
 QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t", quote = "")
 SUmetrics <- read.table(Summary_file,   header=TRUE, sep="\t", quote = "")
 PEmetrics <- read.table(Peptide_file,   header=TRUE, sep="\t", quote = "")
 MYmetrics <- read.table(mayu_file,   sep="\t", quote = "")
 
+# Read experimental design, select key columns, and remove duplicate rows.
+# rename columns to match QCmetrics to ease merge
+expdes <- read.table(expdes_file, header=TRUE, sep=",", quote = "", fill=TRUE, colClasses="character")
+expdes <- subset(expdes, select=c(spectrafile,analyticalsample,fraction))
+expdes <- expdes[!duplicated(expdes$spectrafile),]
+
+if (expdes$spectrafile != QCmetrics$spectrumBasename) {
+  mylog(expdes)
+  mylog(QCmetrics)
+  stopifnot(expdes$spectrafile != QCmetrics$spectrumBasename)
+}
+
+# Overwrite the QCmetrics values based on the expdes file...
+QCmetrics <- merge(QCmetrics,expdes,by.x='spectrumBasename',by.y='spectrafile')
+QCmetrics$analyticalBasename <- QCmetrics$analyticalsample
+QCmetrics$analyticalsample <- NULL
+QCmetrics$fractionNum <- QCmetrics$fraction
+QCmetrics$fraction <- NULL
+
 ##rename "fractionNum" to "Fraction"
-QCmetrics <- rename(QCmetrics, Fraction=fractionNum)
+QCmetrics$Fraction <- QCmetrics$fractionNum
+QCmetrics$fractionNum <- NULL
 
 QCmetrics$analyticalBasenameLabel <- QCmetrics$analyticalBasename
 QCmetrics$analyticalBasenameFactor <- factor(QCmetrics$analyticalBasenameLabel)
@@ -114,24 +136,37 @@ QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasename
 ```
 
 ```{r,include=FALSE}
-##need to separate out the fractions if they are all equal to NA (this means they have not been pulled out before)
-if(sum(!is.na(QCmetrics$Fraction)) == 0)
-{
-  analyticalBasenameSplit <- strsplit(as.character(QCmetrics$analyticalBasename),"_Fr_")
-  QCmetrics$analyticalBasename <- sapply(analyticalBasenameSplit, function(x){x[1]})
-  QCmetrics$Fraction <- as.numeric(sapply(analyticalBasenameSplit, function(x){x[2]}))
-  unique(QCmetrics$Fraction)
-  QCmetrics$Fraction[is.na(QCmetrics$Fraction)] <- 25
+## Get the fractions, give a number to the non-number fractions
+## There must be a more straightfoward way to do this!!!!
+
+QCmetrics$FractionString <- as.character(QCmetrics$Fraction)
+fracnums <- as.numeric(QCmetrics$FractionString)
+fracisnum <- !is.na(fracnums)
+fraclabs <- data.frame(ufraclab=unique(QCmetrics$Fraction[order(fracnums,QCmetrics$FractionString)]))
+fraclabs$ufraclab<-as.character(fraclabs$ufraclab)
+ufracnums <- as.numeric(fraclabs$ufraclab)
+ufracisnum <- !is.na(ufracnums)
+fraclabs$fracindex <- 1:length(fraclabs$ufraclab)
+if (sum(ufracisnum) == 0) {
+    maxfracnum <- 0
+} else {
+    maxfracnum <- max(ufracnums[ufracisnum])
 }
+fraclabs$fracnum <- ufracnums
+fraclabs$fracnum[!ufracisnum] <- (maxfracnum+1):(maxfracnum+(sum(!ufracisnum)))
+QCmetrics <- merge(QCmetrics,fraclabs,by.x='Fraction',by.y='ufraclab')
+QCmetrics$FractionIndex <- QCmetrics$fracindex
+QCmetrics$fracindex <- NULL
+QCmetrics$FractionNumber <- QCmetrics$fracnum
+QCmetrics$fracnum <- NULL
 
-##Get the fractions (check they are 1-24):
-##Ugh - should use a better marker for "A" - how about 1000? or -1? or #unique fraction values? 
-##QCmetrics file will have an A in the fraction position, not NA, from now on. Handle this explicitly. 
+mylog(fraclabs)
 
-sort(unique(QCmetrics$Fraction))
-length(unique(QCmetrics$Fraction))
+## Now QCmetrics has Fraction (factor, probably), FractionString, FractionIndex, and FractionNumber
+## Single alpha letter fractions come after all numbers.
 
-QCmetrics$Fraction[is.na(QCmetrics$Fraction)] <- 25
+QCmetrics$Fraction <- QCmetrics$FractionString
+
 ```
 
 ```{r, include=FALSE}
@@ -211,16 +246,15 @@ QCmetrics <- rename(QCmetrics,
                     RetentionTimeALL.95 = RetentionTime95perc_ALL,
                     RetentionTimeALL.100 = maxRetentionTime_ALL)
 
-
 charge0avail <- FALSE
 if ("MS2Charge0_ALL" %in% colnames(QCmetrics)) {
     QCmetrics <- rename(QCmetrics,
                         MS2chargeALL.0 = MS2Charge0_ALL)
     charge0avail <- TRUE
 }
-
 ##Create data frame melting the precursor intensities
-QCmetricsLongPrecInt_ALL <- melt(QCmetrics[,c(2,3,grep("PrecursorIntensityALL.",colnames(QCmetrics)))],
+QCmetricsLongPrecInt_ALL <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|PrecursorIntensityALL\\.\\d+)$",
+                                                 colnames(QCmetrics))],
                              variable.name="PrecursorIntensityALL",
                              value.name="value",
                              id.vars=c("analyticalBasename","Fraction"))
@@ -236,7 +270,8 @@ QCmetricsLongPrecInt_ALL$`Analytical sample` <- QCmetricsLongPrecInt_ALL$analyti
 QCmetricsLongPrecInt_ALL$Fraction <- QCmetricsLongPrecInt_ALL$Fraction
 
 ##Create data frame melting the precursor MZ values
-QCmetricsLongPrecMZ_ALL <- melt(QCmetrics[,c(2,3,grep("PrecursorMZALL.",colnames(QCmetrics)))],
+QCmetricsLongPrecMZ_ALL <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|PrecursorMZALL\\.\\d+)$",
+                                                colnames(QCmetrics))],
                             variable.name="PrecursorMZALL",
                             value.name="value",
                             id.vars=c("analyticalBasename","Fraction"))
@@ -252,7 +287,8 @@ QCmetricsLongPrecMZ_ALL$`Analytical sample` <- QCmetricsLongPrecMZ_ALL$analytica
 QCmetricsLongPrecMZ_ALL$Fraction <- QCmetricsLongPrecMZ_ALL$Fraction
 
 ##Create data frame melting the precursor MW values
-QCmetricsLongPrecMW_ALL <- melt(QCmetrics[,c(2,3,grep("PrecursorMWALL.",colnames(QCmetrics)))],
+QCmetricsLongPrecMW_ALL <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|PrecursorMWALL\\.\\d+)$",
+                                                colnames(QCmetrics))],
                             variable.name="PrecursorMWALL",
                             value.name="value",
                             id.vars=c("analyticalBasename","Fraction"))
@@ -268,7 +304,8 @@ QCmetricsLongPrecMW_ALL$`Analytical sample` <- QCmetricsLongPrecMW_ALL$analytica
 QCmetricsLongPrecMW_ALL$Fraction <- QCmetricsLongPrecMW_ALL$Fraction
 
 ##Create data frame melting the MS2perMS values
-QCmetricsLongMS2perMS_ALL <- melt(QCmetrics[,c(2,3,grep("MS2perMS1ALL.",colnames(QCmetrics)))],
+QCmetricsLongMS2perMS_ALL <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|MS2perMS1ALL\\.\\d+)$",
+                                                  colnames(QCmetrics))],
                               variable.name=" MS2perMS1ALL",
                             value.name="value",
                               id.vars=c("analyticalBasename","Fraction"))
@@ -284,7 +321,8 @@ QCmetricsLongMS2perMS_ALL$`Analytical sample` <- QCmetricsLongMS2perMS_ALL$analy
 QCmetricsLongMS2perMS_ALL$Fraction <- QCmetricsLongMS2perMS_ALL$Fraction
 
 ##Create data frame melting MS2 charge ratio
-QCmetricsLongMS2Charge_ALL <- melt(QCmetrics[,c(2,3,grep("MS2chargeALL.",colnames(QCmetrics)))],
+QCmetricsLongMS2Charge_ALL <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|MS2chargeALL\\.\\d+[a-z]*)$",
+                                                   colnames(QCmetrics))],
                                     variable.name="MS2chargeALL",
                                     value.name="value",
                                     id.vars=c("analyticalBasename","Fraction"))
@@ -302,7 +340,8 @@ QCmetricsLongMS2Charge_ALL$`Analytical sample` <- QCmetricsLongMS2Charge_ALL$ana
 QCmetricsLongMS2Charge_ALL$Fraction <- QCmetricsLongMS2Charge_ALL$Fraction
 
 # Create data frame melting Peptie Redundancy (Jiahao)
-QCmetricsPeptideRd <- melt(QCmetrics[,c(2,3,grep("PeptideRd.",colnames(QCmetrics)))],
+QCmetricsPeptideRd <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|PeptideRd\\.\\d+)$",
+                                           colnames(QCmetrics))],
                             variable.name="PeptideRd",
                             value.name="value",
                             id.vars=c("analyticalBasename","Fraction"))
@@ -318,7 +357,8 @@ QCmetricsPeptideRd$`Analytical sample` <- QCmetricsPeptideRd$analyticalBasename
 QCmetricsPeptideRd$Fraction <- QCmetricsPeptideRd$Fraction
 
 # Create data frame melting Retention Time All
-QCmetricsPeptideRT_ALL <- melt(QCmetrics[,c(2,3,grep("RetentionTimeALL.",colnames(QCmetrics)))],
+QCmetricsPeptideRT_ALL <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|RetentionTimeALL\\.\\d+)$",
+                                               colnames(QCmetrics))],
                             variable.name="RetentionTimeALL",
                             value.name="value",
                             id.vars=c("analyticalBasename","Fraction"))
@@ -425,7 +465,8 @@ if ("MS2Charge0_ID" %in% colnames(QCmetrics)) {
 
 
 ##Create data frame melting the precursor intensities
-QCmetricsLongPrecInt_ID <- melt(QCmetrics[,c(2,3,grep("PrecursorIntensityID.",colnames(QCmetrics)))],
+QCmetricsLongPrecInt_ID <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|PrecursorIntensityID\\.\\d+)$",
+                                                colnames(QCmetrics))],
                              variable.name="PrecursorIntensityID",
                              value.name="value",
                              id.vars=c("analyticalBasename","Fraction"))
@@ -441,7 +482,8 @@ QCmetricsLongPrecInt_ID$`Analytical sample` <- QCmetricsLongPrecInt_ID$analytica
 QCmetricsLongPrecInt_ID$Fraction <- QCmetricsLongPrecInt_ID$Fraction
 
 ##Create data frame melting the precursor MZ values
-QCmetricsLongPrecMZ_ID <- melt(QCmetrics[,c(2,3,grep("PrecursorMZID.",colnames(QCmetrics)))],
+QCmetricsLongPrecMZ_ID <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|PrecursorMZID\\.\\d+)$",
+                                               colnames(QCmetrics))],
                             variable.name="PrecursorMZID",
                             value.name="value",
                             id.vars=c("analyticalBasename","Fraction"))
@@ -457,7 +499,8 @@ QCmetricsLongPrecMZ_ID$`Analytical sample` <- QCmetricsLongPrecMZ_ID$analyticalB
 QCmetricsLongPrecMZ_ID$Fraction <- QCmetricsLongPrecMZ_ID$Fraction
 
 ##Create data frame melting the precursor MW values
-QCmetricsLongPrecMW_ID <- melt(QCmetrics[,c(2,3,grep("PrecursorMWID.",colnames(QCmetrics)))],
+QCmetricsLongPrecMW_ID <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|PrecursorMWID\\.\\d+)$",
+                                               colnames(QCmetrics))],
                             variable.name="PrecursorMWID",
                             value.name="value",
                             id.vars=c("analyticalBasename","Fraction"))
@@ -472,9 +515,9 @@ colnames(QCmetricsLongPrecMW_ID)[5] <- "value"
 QCmetricsLongPrecMW_ID$`Analytical sample` <- QCmetricsLongPrecMW_ID$analyticalBasename
 QCmetricsLongPrecMW_ID$Fraction <- QCmetricsLongPrecMW_ID$Fraction
 
-
 ##Create data frame melting the MS2perMS values
-QCmetricsLongMS2perMS_ID <- melt(QCmetrics[,c(2,3,grep("MS2perMS1ID.",colnames(QCmetrics)))],
+QCmetricsLongMS2perMS_ID <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|MS2perMS1ID\\.\\d+)$",
+                                                 colnames(QCmetrics))],
                               variable.name=" MS2perMS1",
                               value.name="value",
                               id.vars=c("analyticalBasename","Fraction"))
@@ -490,7 +533,8 @@ QCmetricsLongMS2perMS_ID$`Analytical sample` <- QCmetricsLongMS2perMS_ID$analyti
 QCmetricsLongMS2perMS_ID$Fraction <- QCmetricsLongMS2perMS_ID$Fraction
 
 ##Create data frame melting MS2 charge ratio
-QCmetricsLongMS2Charge_ID <- melt(QCmetrics[,c(2,3,grep("MS2chargeID.",colnames(QCmetrics)))],
+QCmetricsLongMS2Charge_ID <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|MS2chargeID\\.\\d[a-z]*)$",
+                                                  colnames(QCmetrics))],
                                     variable.name="MS2chargeID",
                                     value.name="value",
                                     id.vars=c("analyticalBasename","Fraction"))
@@ -522,7 +566,8 @@ summary(Chargeratio_ALL)
 summary(Chargeratio_ID)
 
 # Create data frame melting Retention Time ID (Jiahao)
-QCmetricsPeptideRT_ID <- melt(QCmetrics[,c(2,3,grep("RetentionTimeID.",colnames(QCmetrics)))],
+QCmetricsPeptideRT_ID <- melt(QCmetrics[,grep("^(analyticalBasename|Fraction|RetentionTimeID\\.\\d+)$",
+                                              colnames(QCmetrics))],
                             variable.name="RetentionTimeID",
                             value.name="value",
                             id.vars=c("analyticalBasename","Fraction"))
@@ -670,7 +715,8 @@ plotColorPalettes <- function(g){
 plotcolor <- plotColorPalettes(length(analyticalSamples)) # the number of colors is the same as how many analytical smples in the data. 
 
 # Create color palette for isobaric label 
-iso_color = brewer.pal(samples_per_analyticalsample, 'Paired')
+# iso_color = brewer.pal(samples_per_analyticalsample, 'Paired')
+iso_color = plotColorPalettes(samples_per_analyticalsample)
 ```
 
 ```{r include=FALSE}
@@ -945,12 +991,13 @@ gg_points <- function(data, y_string, x_string,
   if (label2_string == "") {
     label2_string = y_string;
   }
-  data.original.level=as.vector(unique(data[, x_string]))
-  break.points=as.numeric(unique(data[, x_string]))
+  data.original.level=sort(as.vector(unique(data[, x_string])))
+  break.points=sort(as.numeric(unique(data[, x_string])))
   new.break.points=break.points
   if(length(break.points)>(sparse_x_labels+1) && sparse_x_labels>0){
     divisor=floor(length(break.points)/sparse_x_labels)
-    max.x=divisor*sparse_x_labels
+    max.x=length(break.points)-max(ceiling(divisor/2),2)
+    # max.x=divisor*sparse_x_labels
     new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
     if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
   }
@@ -981,12 +1028,13 @@ gg_box <- function(data, y_string, x_string,
                    col_string, label_string, label2_string="Fraction",
                    same_scale=FALSE, min_y=NULL, max_y=NULL,sparse_x_labels=0)
 {
-  data.original.level=as.vector(unique(data[, x_string]))
-  break.points=as.numeric(unique(data[, x_string]))
+  data.original.level=sort(as.vector(unique(data[, x_string])))
+  break.points=sort(as.numeric(unique(data[, x_string])))
   new.break.points=break.points
   if(length(break.points)>(sparse_x_labels+1) && sparse_x_labels>0){
     divisor=floor(length(break.points)/sparse_x_labels)
-    max.x=divisor*sparse_x_labels
+    max.x=length(break.points)-max(ceiling(divisor/2),2)
+    # max.x=divisor*sparse_x_labels
     new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
     if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
   }
@@ -1020,50 +1068,32 @@ gg_points_frac <- function(data, y_string, x_string,
                            smooth=FALSE,boxplot=FALSE,                   
                            same_scale=FALSE, min_y=NULL, max_y=NULL, sparse_x_labels=0)
 {
-  x_string_fact <- paste("as.factor(",x_string,")",sep="")
-  x_string_used = ""
-  if(boxplot)
-  {
-    x_string_used <- x_string_fact
-  } else {
-    x_string_used <- x_string
-  }
-  
- 
-  fractions.unique.orig=unique(data[,x_string])
-  fractions.relevel=factor(data[,x_string], levels=ordered(fractions.unique.orig))
-  data[,x_string]=fractions.relevel
-  
-  data.original.level=as.vector(unique(data[, x_string]))
-  data[, x_string] = as.numeric(data[, x_string])
-  
-  
-  break.points=as.numeric(unique(data[, x_string]))
+  x_stringlab <- x_string
+  x_stringval <- paste0(x_string,"Index")
+
+  break.points=sort(as.numeric(unique(data[, x_stringval])))
   new.break.points=break.points
   if(length(break.points)>(sparse_x_labels+1) && sparse_x_labels>0){
     divisor=floor(length(break.points)/sparse_x_labels)
-    max.x=divisor*sparse_x_labels
+    max.x=length(break.points)-max(ceiling(divisor/2),2)
+    # max.x=divisor*sparse_x_labels
     new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
     if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
   }
-  
+  new.break.point.labels = fraclabs$ufraclab[fraclabs$fracindex %in% new.break.points];
 
   pf <- 
  
-     ggplot(data, aes_string(y=y_string, x=x_string   # x_string_used
-                                , 
+     ggplot(data, aes_string(y=y_string, x=x_stringval, 
                                 label=label_string,
                                 label2=label2_string
                                 ))   +   
-    # scale_x_discrete(breaks=break.points, labels=break.points) +
-    # scale_x_continuous(breaks=c(1,4,9), labels=c(1,4,9)) +
-    scale_x_continuous(breaks = new.break.points, labels = data.original.level[new.break.points]) +
+    scale_x_continuous(breaks = new.break.points, labels = new.break.point.labels) +
     theme(axis.title.x=element_blank(),
-          axis.title.y=element_blank(), #           panel.margin.x=unit(0.5, "lines") , panel.margin.y=unit(1,"lines"), # added 4/12
+          axis.title.y=element_blank(), 
           plot.margin = margin(0.2, 1.0, 0.2, 0, "cm"),
           legend.position="none")    
       
-
   if(same_scale)
   {
       pf <- pf+ylim(min_y, max_y)
@@ -1079,10 +1109,10 @@ gg_points_frac <- function(data, y_string, x_string,
   {
     pf <- pf+geom_boxplot()
   }
-  if(smooth)
+  if(smooth && 0)
   {
-    pf <- pf+stat_smooth(aes_string(y=y_string, x=x_string, col=col_string),
-                         method="loess", fill="grey50", size=0)
+    pf <- (pf+stat_smooth(aes_string(y=y_string, x=x_stringval, col=col_string),
+                         method="loess", fill="grey50", size=0))
   }
   pf + geom_point(aes_string(col=col_string))
 }
@@ -1090,38 +1120,36 @@ gg_points_frac <- function(data, y_string, x_string,
 gg_points_frac_perc <- function(data, y_string, x_string,
                                 col_string, group_string,
                                 label_string, 
-				label2_string="Fraction",
+				                label2_string="Fraction",
                                 boxplot=FALSE,
                                 same_scale=TRUE, min_y=NULL, max_y=NULL,sparse_x_labels=0)
 {
   
-
-  fractions.unique.orig=unique(data[,x_string])
-  fractions.relevel=factor(data[,x_string], levels=ordered(fractions.unique.orig))
-  data[,x_string]=fractions.relevel
+  data <- merge(data,fraclabs,by.x="Fraction",by.y="ufraclab")
+  # mylog(data)
+  data$FractionIndex <- data$fracindex
+  data$fracindex <- NULL
+  data$fracnum <- NULL
+  x_stringval = paste0(x_string,"Index")
   
-  data.original.level=as.vector(unique(data[, x_string]))
-  data[, x_string] = as.numeric(data[, x_string])
-  
-  
-  break.points=as.numeric(unique(data[, x_string]))
+  break.points=sort(as.numeric(unique(data[, x_stringval])))
   new.break.points=break.points
   if(length(break.points)>(sparse_x_labels+1)&&sparse_x_labels>0){
     divisor=floor(length(break.points)/sparse_x_labels)
-    max.x=divisor*sparse_x_labels
+    max.x=length(break.points)-max(ceiling(divisor/2),2)
+    # max.x=divisor*sparse_x_labels
     new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
     if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
   }
+  new.break.point.labels = fraclabs$ufraclab[fraclabs$fracindex %in% new.break.points]
 
-
-  
   pfc <- 
      ggplot(data, 
-                  aes_string(y=y_string, x=x_string, 
+                  aes_string(y=y_string, x=x_stringval, 
                              col=col_string, group=group_string,
                              label=label_string, label2=label2_string)) + 
         facet_grid(~ Percentile)   +
-        scale_x_continuous(breaks = new.break.points, labels=data.original.level[new.break.points]) +
+        scale_x_continuous(breaks = new.break.points, labels=new.break.point.labels) +
         theme(plot.margin = margin(0.2, 1.0, 0.2, 0, "cm")) #change 
     
   
@@ -1197,7 +1225,7 @@ nProteins1 = cum_id_protein[nrow(all_id_protein),1]
 nCommonProteins = all_id_protein[nrow(all_id_protein),1]
 
 protfdr = as.character(MYmetrics[[5]])
-protfdr = paste0(as.character(as.numeric(substr(protfdr,1,nchar(protfdr)-1))),"%")
+protfdr = paste0(as.character(round(as.numeric(substr(protfdr,1,nchar(protfdr)-1)),2)),"%")
 
 # peptides identified? 
 nPeptides = length(unique(PEmetrics$Peptide))
@@ -1235,6 +1263,24 @@ if (regexpr("\\.phospho",tmt10_file) != -1) {
     nPhosphoSites = nrow(orig_s_metrics)
     # mylog(tmt10_file)
     stopifnot(regexpr("\\.phosphosite\\.",tmt10_file)>=0)
+} else if (regexpr("\\.acetyl",tmt10_file) != -1) {
+    proteome = "Acetylome"
+    # Assumes we have acetylsites as the quantitation file
+    nAcetylSites = nrow(orig_s_metrics)
+    # mylog(tmt10_file)
+    stopifnot(regexpr("\\.acetylsite\\.",tmt10_file)>=0)
+} else if (regexpr("\\.ubiquityl",tmt10_file) != -1) {
+    proteome = "Ubiquitylome"
+    # Assumes we have ubisites as the quantitation file
+    nUbiSites = nrow(orig_s_metrics)
+    # mylog(tmt10_file)
+    stopifnot(regexpr("\\.ubiquitylsite\\.",tmt10_file)>=0)
+} else if (regexpr("\\.glyco",tmt10_file) != -1) {
+    proteome = "Glycoproteome"
+    # Assumes we have glycosites as the quantitation file
+    nGlycoSites = nrow(orig_s_metrics)
+    # mylog(tmt10_file)
+    stopifnot(regexpr("\\.glycosite\\.",tmt10_file)>=0)
 } else {
     proteome = "Whole Proteome"
 }
@@ -1265,6 +1311,15 @@ values =   c(nSamples,
 if (proteome == "Phosphoproteome") {
   headers <- append(headers,c("Phosphosites"),after=9);
   values <- append(values,c(prettyNum(nPhosphoSites,big.mark=",",scientific=FALSE)),after=9);
+} else if (proteome == "Acetylome") {
+  headers <- append(headers,c("Acetylsites"),after=9);
+  values <- append(values,c(prettyNum(nAcetylSites,big.mark=",",scientific=FALSE)),after=9);
+} else if (proteome == "Ubiquitylome") {
+  headers <- append(headers,c("Ubiquitylsites"),after=9);
+  values <- append(values,c(prettyNum(nUbiSites,big.mark=",",scientific=FALSE)),after=9);
+} else if (proteome == "Glycoproteome") {
+  headers <- append(headers,c("Glycosites"),after=9);
+  values <- append(values,c(prettyNum(nGlycoSites,big.mark=",",scientific=FALSE)),after=9);
 }
 
 summary_table <- matrix(values, ncol = 1)
@@ -1375,7 +1430,7 @@ g_DP_byF <- gg_points_frac(QCmetrics,
                                y_string="PeptideCount", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
-                               smooth=ifelse(nFractionsPerAS>2,TRUE,FALSE)) + 
+                               smooth=ifelse(nFractionsPerAS>3,TRUE,FALSE)) + 
 	    theme(plot.margin = margin(0.2, 1.0, 0.2, 0.3, "cm"))
 p_DP_byF <- ggplotly(g_DP_byF, tooltip=c("label","label2")) %>% layout(annotations=peptide_title) %>% layout(annotations=fr_title)
 
@@ -1453,7 +1508,7 @@ g_MS2sca_all <- gg_points_frac(QCmetrics,
                                y_string="numofMS2_ALL", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
-                               smooth=ifelse(nFractionsPerAS>2,TRUE,FALSE),sparse_x_label=4) +
+                               smooth=ifelse(nFractionsPerAS>3,TRUE,FALSE),sparse_x_label=4) +
 	        theme(plot.margin = margin(0.2, 1.0, 0.2, 0.5, "cm"))
 p_MS2sca_all <- ggplotly(g_MS2sca_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title) %>% layout(annotations=fr_title)
 
@@ -1461,7 +1516,7 @@ g_MS2sca_id <- gg_points_frac(QCmetrics,
                                y_string="numofMS2_ID", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
-                               smooth=ifelse(nFractionsPerAS>2,TRUE,FALSE),sparse_x_label=4) +
+                               smooth=ifelse(nFractionsPerAS>3,TRUE,FALSE),sparse_x_label=4) +
 	        theme(plot.margin = margin(0.2, 1.0, 0.2, 0.5, "cm"))
 p_MS2sca_id <- ggplotly(g_MS2sca_id, tooltip=c("label","label2"))  %>% layout(annotations=id_spect_title) %>% layout(annotations=fr_title)
 
