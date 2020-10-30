@@ -58,7 +58,11 @@
 			peptide.count <- length(peptide.sequences)
 			peptide.redundancy <- length(scan.ids)/peptide.count
 			f <- data.frame(table(mzid$psms[mzid$psms$ordinal == 1,]$sequence))
+            if (length(rownames(f)) > 0) {
 			peptide.frequency <- f[f$Freq>0,]$Freq
+            } else {
+            peptide.frequency <- c(0)
+            }
 			
 			## m## none of the ms1 in mzML is found in mzID
 			# ms2.per.ms1.count=c()
@@ -315,5 +319,5 @@
                                "PeptideRedundancy25perc", "PeptideRedundancy50perc", "PeptideRedundancy75perc",
                                "PeptideRedundancy95perc", "maxPeptideRedundancy", "meanPeptideRedundancy")
 	mzml.all.id <- cbind(mzml.all.id,pepfreq)
-
+	mzml.all.id[is.na(mzml.all.id)] <- 0
 	write.table(mzml.all.id, out.file, col.names=TRUE, row.names=FALSE, quote=FALSE, sep="\t")

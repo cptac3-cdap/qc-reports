@@ -287,12 +287,14 @@ wrapper <- function() {
 	df2 = peptideevidence()
 	df2$id <- NULL
 
+    if ("peptide_ref" %in% df2) {
 	df1 = merge(df1,df2,by.x="peptide_id",by.y="peptide_ref",all.x=TRUE)
 
 	df2 = proteins()
 	colnames(df2)[colnames(df2)=="id"] <- "protein_id"
 
 	df1 = merge(df1,df2,by.x="dBSequence_ref",by.y="protein_id",all.x=TRUE)
+    }
 
 	df1$peptide_ref <- NULL
 	df1$dBSequence_ref <- NULL
@@ -321,6 +323,7 @@ wrapper <- function() {
     };
     sir <- function() {
 	pd = list()
+    if (length(sirdata[["id"]]) > 0) {
 	for (n in names(sirdata)) {
 	    pd[[n]] = unlist(sirdata[[n]],recursive=TRUE)
 	    if (n == "intensity of precursor ion" || n == "retention time") {
@@ -333,6 +336,9 @@ wrapper <- function() {
 	# pure row index based merge
 	# This will error if we never see spectrumID ...
 	merge(data.frame(pd),pd1,by=0,all=TRUE)
+    } else {
+    data.frame(pd)
+    }
     };
     psms <- function() {
 	df1 = sii()
@@ -344,8 +350,10 @@ wrapper <- function() {
 	df3 = peptides()
 	colnames(df3)[colnames(df3)=="id"] <- "peptide_id"
 
-	df1 = merge(df1,df3,by.x="peptide_ref",by.y="peptide_id",all.x=TRUE)
-	df1 = merge(df1,df2,by.x="spectrumIdentificationResult_ref",by.y="sir_id",all.x=TRUE)
+    if ("peptide_id" %in% colnames(df3)) {
+	  df1 = merge(df1,df3,by.x="peptide_ref",by.y="peptide_id",all.x=TRUE)
+	  df1 = merge(df1,df2,by.x="spectrumIdentificationResult_ref",by.y="sir_id",all.x=TRUE)
+    }
 	df1$spectrumIdentificationResult_ref <- NULL
 	df1$sir_id <- NULL
 	df1$peptide_id <- NULL
