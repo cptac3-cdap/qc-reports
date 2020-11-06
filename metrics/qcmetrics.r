@@ -319,5 +319,5 @@
                                "PeptideRedundancy25perc", "PeptideRedundancy50perc", "PeptideRedundancy75perc",
                                "PeptideRedundancy95perc", "maxPeptideRedundancy", "meanPeptideRedundancy")
 	mzml.all.id <- cbind(mzml.all.id,pepfreq)
-	mzml.all.id[is.na(mzml.all.id)] <- 0
+	mzml.all.id[,is.na(mzml.all.id)] <- 0
 	write.table(mzml.all.id, out.file, col.names=TRUE, row.names=FALSE, quote=FALSE, sep="\t")
