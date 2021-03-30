@@ -91,12 +91,12 @@ expdes <- read.table(expdes_file, header=TRUE, sep=",", quote = "", fill=TRUE, c
 expdes <- subset(expdes, select=c(spectrafile,analyticalsample,fraction))
 expdes <- expdes[!duplicated(expdes$spectrafile),]
 
-if (expdes$spectrafile != QCmetrics$spectrumBasename) {
-  mylog(expdes)
-  mylog(QCmetrics)
-  stopifnot(expdes$spectrafile != QCmetrics$spectrumBasename)
-}
-
+if (sort(unique(expdes$spectrafile)) != sort(unique(QCmetrics$spectrumBasename))) {                                     
+  mylog(expdes)                                                                                                         
+  mylog(QCmetrics)                                                                                                      
+  stopifnot(sort(unique(expdes$spectrafile)) != sort(unique(QCmetrics$spectrumBasename)))                               
+}                                                                                                                       
+ 
 # Overwrite the QCmetrics values based on the expdes file...
 QCmetrics <- merge(QCmetrics,expdes,by.x='spectrumBasename',by.y='spectrafile')
 QCmetrics$analyticalBasename <- QCmetrics$analyticalsample
