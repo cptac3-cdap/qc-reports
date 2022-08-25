@@ -1213,10 +1213,15 @@ nFractionsPerAS = length(unique(QCmetrics$Fraction))
 # Number of spectral datafiles
 nFiles = nrow(QCmetrics)
 
+# Number of replicates
+t3 = table(QCmetrics$analyticalBasename,QCmetrics$Fraction)
+nRepsPerFrac = max(t3)
+nRepsPerFracMin = min(t3)
+
 # Check!
 if (params$dochecks) {
-  mylog(c(nFiles,nAnalyticalSamples,nFractionsPerAS))
-  stopifnot(nFiles == (nAnalyticalSamples * nFractionsPerAS))
+  mylog(c(nFiles,nAnalyticalSamples,nFractionsPerAS,nRepsPerFrac))
+  stopifnot(nFiles == (nAnalyticalSamples * nFractionsPerAS * nRepsPerFrac))
 }
 
 # proteins identified
@@ -1322,6 +1327,15 @@ if (proteome == "Phosphoproteome") {
   values <- append(values,c(prettyNum(nGlycoSites,big.mark=",",scientific=FALSE)),after=9);
 }
 
+if (nRepsPerFrac > 1 | nRepsPerFracMin < 1) {
+  headers <- append(headers,c("Replicates per Fraction"),after=6)
+  if (nRepsPerFracMin == nRepsPerFrac) {
+    values <- append(values,c(nRepsPerFrac),after=6)
+  } else {
+    values <- append(values,c(sprintf("%s-%s",nRepsPerFracMin,nRepsPerFrac)),after=6)
+  }
+}
+
 summary_table <- matrix(values, ncol = 1)
 rownames(summary_table) <- headers
 kable(summary_table, align = 'r') %>% kable_styling(bootstrap_options = c("striped","hover"),full_width = F, position="left") %>% column_spec(1, bold = T) 
@@ -1330,11 +1344,38 @@ kable(summary_table, align = 'r') %>% kable_styling(bootstrap_options = c("strip
 # - Analytical Samples
 ```{r echo=FALSE,results='asis'}
 t <- table(QCmetrics$analyticalBasenameIndex)
-mat_t <- matrix(NA, ncol=3, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
-mat_t[,1] <- sprintf("%02d",1:length(levels(QCmetrics$analyticalBasenameFactor)))
-mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
-mat_t[,3] <- as.matrix(t)[,1]
-colnames(mat_t) <- c("Index","Analytical sample", "Fractions")
+# mylog(QCmetrics)
+mylog(t)
+df1 = data.frame(analyticalBasenameIndex=QCmetrics$analyticalBasenameIndex,
+                 fractionIndex=QCmetrics$FractionIndex)
+t2 = table(df1$analyticalBasenameIndex,df1$fractionIndex)
+maxreps = apply(t2, 1, FUN = max)
+t2[t2==0] = 10000000 # this is a HACK!
+minreps = apply(t2, 1, FUN = min)
+df1 = df1[!duplicated(df1),]
+mylog(df1)
+t1 = table(df1$analyticalBasenameIndex)
+mylog(t1)
+if (nRepsPerFrac == 1) {
+    mat_t <- matrix(NA, ncol=3, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
+    mat_t[,1] <- sprintf("%02d",1:length(levels(QCmetrics$analyticalBasenameFactor)))
+    mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
+    mat_t[,3] <- as.matrix(t1)[,1]
+    colnames(mat_t) <- c("Index","Analytical sample", "Fractions")
+} else {
+    mat_t <- matrix(NA, ncol=5, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
+    mat_t[,1] <- sprintf("%02d",1:length(levels(QCmetrics$analyticalBasenameFactor)))
+    mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
+    mat_t[,3] <- as.matrix(t1)[,1]
+    mat_t[,4] <- as.matrix(maxreps)[,1]
+    for (i in 1:range(length(maxreps))) {
+        if (minreps[i] != maxreps[i]) {
+            mat_t[i,4] = sprintf("%s-%s",minreps[i],maxreps[i])
+        }
+    }
+    mat_t[,5] <- as.matrix(t)[,1]
+    colnames(mat_t) <- c("Index","Analytical sample", "Fractions","Replicates","Files")
+}
 kable(mat_t) %>% kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, position="left")
 ```
 
