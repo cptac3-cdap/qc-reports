@@ -19,7 +19,7 @@ expdes_file <- paste0(Base_filename,".sample.csv",sep="")
 
 types  = c("",".phosphosite",".acetylsite",".ubiquitylsite",".glycosite",".phosphopeptide",".acetylpeptide","ubiquitylpeptide",".glycopeptide",".peptide")
 rawopt = c("","-raw")
-labels = c("tmt10","tmt11","tmt6","itraq","spectral_counts","precursor_area")
+labels = c("tmt10","tmt11","tmt6","tmt16","tmt18","itraq","spectral_counts","precursor_area")
 
 for (type in types) {
   for (raw in rawopt) {
