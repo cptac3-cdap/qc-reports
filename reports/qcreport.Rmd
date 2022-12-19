@@ -88,7 +88,7 @@ MYmetrics <- read.table(mayu_file,   sep="\t", quote = "")
 # Read experimental design, select key columns, and remove duplicate rows.
 # rename columns to match QCmetrics to ease merge
 expdes <- read.table(expdes_file, header=TRUE, sep=",", quote = "", fill=TRUE, colClasses="character")
-expdes <- subset(expdes, select=c(spectrafile,analyticalsample,fraction))
+expdes <- subset(expdes, select=c(spectrafile,analyticalsample,analyticalsampleordinal,fraction))
 expdes <- expdes[!duplicated(expdes$spectrafile),]
 
 if (sort(unique(expdes$spectrafile)) != sort(unique(QCmetrics$spectrumBasename))) {                                     
@@ -109,7 +109,8 @@ QCmetrics$Fraction <- QCmetrics$fractionNum
 QCmetrics$fractionNum <- NULL
 
 QCmetrics$analyticalBasenameLabel <- QCmetrics$analyticalBasename
-QCmetrics$analyticalBasenameFactor <- factor(QCmetrics$analyticalBasenameLabel)
+orderedabs = unique(QCmetrics[order(as.numeric(QCmetrics$analyticalsampleordinal)),]$analyticalBasenameLabel)
+QCmetrics$analyticalBasenameFactor <- factor(QCmetrics$analyticalBasenameLabel,levels=orderedabs,ordered=TRUE)
 QCmetrics$analyticalBasenameIndex <- as.numeric(QCmetrics$analyticalBasenameFactor)
 QCmetrics$analyticalBasename <- QCmetrics$analyticalBasenameIndex
 
