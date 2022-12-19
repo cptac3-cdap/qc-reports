@@ -610,10 +610,10 @@ colnames(all_id_protein) <- "ProteinCounts"
 id_protein$analyticalBasename <- rownames(id_protein)
 
 id_protein$analyticalBasenameLabel <- id_protein$analyticalBasename
-id_protein$analyticalBasenameFactor <- factor(id_protein$analyticalBasenameLabel)
+id_protein$analyticalBasenameFactor <- factor(id_protein$analyticalBasenameLabel,levels=unique(id_protein$analyticalBasename),ordered=TRUE)
 id_protein$analyticalBasenameIndex <- as.numeric(id_protein$analyticalBasenameFactor)
 id_protein$analyticalBasename <- id_protein$analyticalBasenameIndex
- 
+
 # id_protein$analyticalBasename <- as.character(id_protein$analyticalBasename)
 id_protein$analyticalBasename <- sprintf("%02d",id_protein$analyticalBasename)
 id_protein$`Analytical sample` <- id_protein$analyticalBasename
