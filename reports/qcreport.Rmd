@@ -1238,6 +1238,8 @@ nPeptides = length(unique(PEmetrics$Peptide))
 
 # Ratios computed / Typically "samples" in CPTAC studies
 nSamples = ncol(s_metrics)
+nCompleteObs = nrow(s_metrics)
+# mylog(c(nSamples,nCompleteObs))
 
 # Samples per analytical sample: samples_per_analyticalsample 
 nSamplesPerAS = samples_per_analyticalsample
@@ -1814,11 +1816,11 @@ p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_sp
 subplot(p_all, p_id, margin=0.05)
 
 ```
-```{r, child = if (nSamples > 2 | protocol != 'Label-free') 'batchhdr.Rmd' else 'empty.Rmd'} 
+```{r, child = if ((nSamples > 2) & (nCompleteObs > 2)) 'batchhdr.Rmd' else 'empty.Rmd'} 
 ```
-```{r, child = if (nSamples > 2) 'analsamp.Rmd' else 'empty.Rmd'} 
+```{r, child = if ((nSamples > 2) & (nCompleteObs > 2)) 'analsamp.Rmd' else 'empty.Rmd'} 
 ```
-```{r, child = if (protocol != 'Label-free') 'labels.Rmd' else 'empty.Rmd'} 
+```{r, child = if ((nSamples > 2) & (nCompleteObs > 2) & (protocol != 'Label-free')) 'labels.Rmd' else 'empty.Rmd'} 
 ```
 
 <font size="2">*For more information about **Plotly Modebar**, click <a href="https://help.plot.ly/getting-to-know-the-plotly-modebar/" target="_blank"><b>here</b></a>.*</font>
