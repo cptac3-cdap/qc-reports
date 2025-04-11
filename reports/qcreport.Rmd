@@ -91,10 +91,10 @@ expdes <- read.table(expdes_file, header=TRUE, sep=",", quote = "", fill=TRUE, c
 expdes <- subset(expdes, select=c(spectrafile,analyticalsample,analyticalsampleordinal,fraction))
 expdes <- expdes[!duplicated(expdes$spectrafile),]
 
-if (sort(unique(expdes$spectrafile)) != sort(unique(QCmetrics$spectrumBasename))) {                                     
+if (!setequal(expdes$spectrafile,QCmetrics$spectrumBasename)) {
   mylog(expdes)                                                                                                         
   mylog(QCmetrics)                                                                                                      
-  stopifnot(sort(unique(expdes$spectrafile)) != sort(unique(QCmetrics$spectrumBasename)))                               
+  stopifnot(setequal(expdes$spectrafile,QCmetrics$spectrumBasename))
 }                                                                                                                       
  
 # Overwrite the QCmetrics values based on the expdes file...
@@ -1352,7 +1352,6 @@ kable(summary_table, align = 'r') %>% kable_styling(bootstrap_options = c("strip
 ```{r echo=FALSE,results='asis'}
 t <- table(QCmetrics$analyticalBasenameIndex)
 # mylog(QCmetrics)
-mylog(t)
 df1 = data.frame(analyticalBasenameIndex=QCmetrics$analyticalBasenameIndex,
                  fractionIndex=QCmetrics$FractionIndex)
 t2 = table(df1$analyticalBasenameIndex,df1$fractionIndex)
@@ -1360,9 +1359,7 @@ maxreps = apply(t2, 1, FUN = max)
 t2[t2==0] = 10000000 # this is a HACK!
 minreps = apply(t2, 1, FUN = min)
 df1 = df1[!duplicated(df1),]
-mylog(df1)
 t1 = table(df1$analyticalBasenameIndex)
-mylog(t1)
 if (nRepsPerFrac == 1) {
     mat_t <- matrix(NA, ncol=3, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
     mat_t[,1] <- sprintf("%02d",1:length(levels(QCmetrics$analyticalBasenameFactor)))
