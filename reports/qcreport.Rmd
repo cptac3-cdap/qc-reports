@@ -673,8 +673,10 @@ if (sum(grepl("^Median$",rownames(raw_edata))) > 0) {
 
 orig_s_metrics <- s_metrics
 
-mylog(c(ncol(s_metrics),ncol(Spectral_table)))
-stopifnot(ncol(s_metrics) %% ncol(Spectral_table) == 0)
+if (params$dochecks) {
+  mylog(c(ncol(s_metrics),ncol(Spectral_table)))
+  stopifnot(ncol(s_metrics) %% ncol(Spectral_table) == 0)
+}
 
 samples_per_analyticalsample = as.integer(ncol(s_metrics)/ncol(Spectral_table))
 
