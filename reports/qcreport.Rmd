@@ -36,7 +36,7 @@ max-width: 2030px;
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
 
-```{r, warning=FALSE, include=FALSE}
+```{r, warning=TRUE, include=FALSE}
 library(ggplot2)
 library(reshape2)
 library(knitr)
@@ -64,14 +64,12 @@ if (params$format != 'pdf_document') {
 
 mylog <- function(s) {
   if (params$debug) {
-    capture.output(cat(c(deparse(substitute(s)),"\n")),file='debug.log',append=TRUE)
+    capture.output(cat(c("MYLOG:",deparse(substitute(s)),"\n")),file='debug.log',append=TRUE)
     capture.output(s,file='debug.log',append=TRUE)
     capture.output(cat("\n"),file='debug.log',append=TRUE)
   }
 }
 file.remove('debug.log')
-
-# mylog(params)
 
 QCmetrics_file <- params$qcmetricsfile
 Summary_file <- params$summaryfile
@@ -79,6 +77,7 @@ Peptide_file <- params$peptidefile
 tmt10_file <- params$quantfile
 mayu_file <- params$mayufile
 expdes_file <- params$expdesfile
+outexpdes_file <- sub('\\.qcmetrics\\.','\\.expdesign\\.',QCmetrics_file)
 
 QCmetrics <- read.table(QCmetrics_file, header=TRUE, sep="\t", quote = "")
 SUmetrics <- read.table(Summary_file,   header=TRUE, sep="\t", quote = "")
@@ -88,14 +87,45 @@ MYmetrics <- read.table(mayu_file,   sep="\t", quote = "")
 # Read experimental design, select key columns, and remove duplicate rows.
 # rename columns to match QCmetrics to ease merge
 expdes <- read.table(expdes_file, header=TRUE, sep=",", quote = "", fill=TRUE, colClasses="character")
+expdes1 <- expdes;
+
 expdes <- subset(expdes, select=c(spectrafile,analyticalsample,analyticalsampleordinal,fraction))
 expdes <- expdes[!duplicated(expdes$spectrafile),]
 
-if (!setequal(expdes$spectrafile,QCmetrics$spectrumBasename)) {
-  mylog(expdes)                                                                                                         
-  mylog(QCmetrics)                                                                                                      
+if (!setequal(expdes$spectrafile,QCmetrics$spectrumBasename)) { 
+  mylog(expdes)
+  mylog(QCmetrics)
   stopifnot(setequal(expdes$spectrafile,QCmetrics$spectrumBasename))
 }                                                                                                                       
+
+tmp <- strsplit(expdes1$denominator,split=";")
+times=sapply(tmp, length)
+tmp[times==0] = c("")
+expdes1 <- expdes1[rep(row.names(expdes1), times=sapply(tmp, length)),]
+expdes1$denominator <- unlist(tmp)
+expdes1$ratioordinal <- as.numeric(sub(':.*$','',expdes1$denominator))
+expdes1$denominator <- sub('^\\d+:','',expdes1$denominator)
+expdes1$labelratios <- sprintf("%s/%s",expdes1$label,expdes1$denominator)
+expdes1 <- merge(expdes1,subset(expdes1, select=c('spectrafile','label','sample')), 
+                 by.x=c('spectrafile','denominator'),by.y=c('spectrafile','label'),
+                 suffixes = c("","_denominator"))
+expdes1$sampleratios <- sprintf("%s/%s",expdes1$sample,expdes1$sample_denominator)
+expdes1 <- expdes1[expdes1$denominator!="",]
+expdes1 <- expdes1[!duplicated(subset(expdes1, select=c(sample,analyticalsampleordinal,label,denominator,labelratios,ratioordinal,sampleratios))),]
+
+expdes1$labelfactor <- factor(expdes1$label,levels=unique(expdes1$label))
+expdes1$labelratiosfactor <- factor(expdes1$labelratios,levels=unique(expdes1$labelratios))
+expdes1$analyticalsampleordinal = as.numeric(expdes1$analyticalsampleordinal);
+expdes1$analyticalsampleordinalstr = sprintf("%02d",expdes1$analyticalsampleordinal);
+# expdes1$analyticalsampleordinalstr = sprintf("%d",expdes1$analyticalsampleordinal);
+expdes1$analyticalsampleascolumn <- make.names(expdes1$analyticalsample)
+expdes1$sampleascolumn <- make.names(expdes1$sample)
+expdes1$sampleratiosascolumn <- make.names(expdes1$sampleratios)
+expdes1 <- expdes1[with(expdes1, order(analyticalsampleordinal,ratioordinal)),]
+
+number_of_numerator_labels = length(unique(expdes1$labelratios))
+min_samples_per_analyticalsample = min(table(expdes1$analyticalsampleordinal))
+samples_per_analyticalsample = max(table(expdes1$analyticalsampleordinal))
  
 # Overwrite the QCmetrics values based on the expdes file...
 QCmetrics <- merge(QCmetrics,expdes,by.x='spectrumBasename',by.y='spectrafile')
@@ -111,16 +141,15 @@ QCmetrics$fractionNum <- NULL
 QCmetrics$analyticalBasenameLabel <- QCmetrics$analyticalBasename
 orderedabs = unique(QCmetrics[order(as.numeric(QCmetrics$analyticalsampleordinal)),]$analyticalBasenameLabel)
 QCmetrics$analyticalBasenameFactor <- factor(QCmetrics$analyticalBasenameLabel,levels=orderedabs,ordered=TRUE)
-QCmetrics$analyticalBasenameIndex <- as.numeric(QCmetrics$analyticalBasenameFactor)
-QCmetrics$analyticalBasename <- QCmetrics$analyticalBasenameIndex
+QCmetrics$analyticalBasenameIndex <- as.numeric(QCmetrics$analyticalsampleordinal)
+QCmetrics$analyticalBasenameIndexStr <- sprintf("%02d",as.numeric(QCmetrics$analyticalsampleordinal))
 
 # if these are left as numbers, the color scale is messed up. Why?
-# QCmetrics$analyticalBasename <- as.character(QCmetrics$analyticalBasename)
 # This will ensure proper sort order (at least until 100 analytical samples)
-QCmetrics$analyticalBasename <- sprintf("%02d",QCmetrics$analyticalBasename)
+QCmetrics$analyticalBasename <- sprintf("%02d",QCmetrics$analyticalBasenameIndex)
 
 ##add some new columns to QCmetrics (same as other columns, but useful for tooltip!)
-QCmetrics$`Analytical sample` <- QCmetrics$analyticalBasename 
+QCmetrics$`Analytical sample` <- QCmetrics$analyticalBasenameIndex
 
 # summary(QCmetrics$analyticalBasename)
 # summary(QCmetrics$analyticalBasenameIndex)
@@ -133,7 +162,7 @@ identical(names(numofMS2_ALL_per_AS), names(numofMS2_ID_per_AS))
 QCmetrics_AS <- data.frame(analyticalBasename=names(numofMS2_ID_per_AS),
                            numofMS2_ALL_per_AS=numofMS2_ALL_per_AS,
                            numofMS2_ID_per_AS=numofMS2_ID_per_AS)
-QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasename
+QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasenameIndex
 ```
 
 ```{r,include=FALSE}
@@ -160,8 +189,6 @@ QCmetrics$FractionIndex <- QCmetrics$fracindex
 QCmetrics$fracindex <- NULL
 QCmetrics$FractionNumber <- QCmetrics$fracnum
 QCmetrics$fracnum <- NULL
-
-mylog(fraclabs)
 
 ## Now QCmetrics has Fraction (factor, probably), FractionString, FractionIndex, and FractionNumber
 ## Single alpha letter fractions come after all numbers.
@@ -589,8 +616,15 @@ QCmetricsPeptideRT_ID$Fraction <- QCmetricsPeptideRT_ID$Fraction
 col_selection <- grepl(".Unshared.Peptides$", names(SUmetrics))
 
 Spectral_table <- SUmetrics[ , col_selection, drop=FALSE ]
+colnames(Spectral_table) <- sub(".Unshared.Peptides$","",colnames(Spectral_table))
 
 id_protein <- Spectral_table[ , , drop=FALSE ] >= 2
+
+df1 = subset(expdes1, select=c('analyticalsampleascolumn','analyticalsample','analyticalsampleordinalstr','analyticalsampleordinal'))
+df1 <- df1[!duplicated(df1),]
+df1 <- df1[order(df1$analyticalsampleordinal),]
+
+id_protein <- id_protein[,df1$analyticalsampleascolumn,drop=FALSE]
 
 cum_id_protein <- id_protein
 all_id_protein <- id_protein
@@ -607,20 +641,47 @@ all_id_protein <- data.frame(colSums(all_id_protein))
 colnames(id_protein) <- "ProteinCounts"
 colnames(cum_id_protein) <- "ProteinCounts"
 colnames(all_id_protein) <- "ProteinCounts"
-id_protein$analyticalBasename <- rownames(id_protein)
 
-id_protein$analyticalBasenameLabel <- id_protein$analyticalBasename
-id_protein$analyticalBasenameFactor <- factor(id_protein$analyticalBasenameLabel,levels=unique(id_protein$analyticalBasename),ordered=TRUE)
-id_protein$analyticalBasenameIndex <- as.numeric(id_protein$analyticalBasenameFactor)
-id_protein$analyticalBasename <- id_protein$analyticalBasenameIndex
+id_protein$Proteins <- id_protein$ProteinCounts
+cum_id_protein$Proteins <- cum_id_protein$ProteinCounts
+all_id_protein$Proteins <- all_id_protein$ProteinCounts
 
-# id_protein$analyticalBasename <- as.character(id_protein$analyticalBasename)
-id_protein$analyticalBasename <- sprintf("%02d",id_protein$analyticalBasename)
-id_protein$`Analytical sample` <- id_protein$analyticalBasename
-cum_id_protein$analyticalBasename <- id_protein$analyticalBasename
-cum_id_protein$`Analytical sample` <- id_protein$`Analytical sample`
-all_id_protein$analyticalBasename <- id_protein$analyticalBasename
-all_id_protein$`Analytical sample` <- id_protein$`Analytical sample`
+# QCmetrics$analyticalBasenameFactor <- factor(QCmetrics$analyticalBasenameLabel,levels=orderedabs,ordered=TRUE)
+# QCmetrics$analyticalBasenameIndex <- as.numeric(QCmetrics$analyticalsampleordinal)
+# QCmetrics$analyticalBasename <- sprintf("%02d",QCmetrics$analyticalBasenameIndex)
+
+
+# id_protein$analyticalBasenameFactor <- factor(id_protein$analyticalBasenameLabel,levels=orderedabs,ordered=TRUE)
+# id_protein$analyticalBasenameIndex <- as.numeric(id_protein$analyticalBasenameFactor)
+id_protein$analyticalBasenameLabel <- make.names(rownames(id_protein))
+id_protein <- merge(id_protein, df1, by.x='analyticalBasenameLabel', by.y='analyticalsampleascolumn', suffixes=c("","expdes"))
+id_protein <- id_protein[order(id_protein$analyticalsampleordinal),]
+
+cum_id_protein$analyticalBasenameLabel <- make.names(rownames(cum_id_protein))
+cum_id_protein <- merge(cum_id_protein, df1, by.x='analyticalBasenameLabel', by.y='analyticalsampleascolumn', suffixes=c("","expdes"))
+cum_id_protein <- cum_id_protein[order(cum_id_protein$analyticalsampleordinal),]
+
+all_id_protein$analyticalBasenameLabel <- make.names(rownames(all_id_protein))
+all_id_protein <- merge(all_id_protein, df1, by.x='analyticalBasenameLabel', by.y='analyticalsampleascolumn', suffixes=c("","expdes"))
+all_id_protein <- all_id_protein[order(all_id_protein$analyticalsampleordinal),]
+
+id_protein$analyticalBasename <- id_protein$analyticalsample
+cum_id_protein$analyticalBasename <- cum_id_protein$analyticalsample
+all_id_protein$analyticalBasename <- all_id_protein$analyticalsample
+
+id_protein$analyticalBasenameIndex <- id_protein$analyticalsampleordinal
+cum_id_protein$analyticalBasenameIndex <- cum_id_protein$analyticalsampleordinal
+all_id_protein$analyticalBasenameIndex <- all_id_protein$analyticalsampleordinal
+
+id_protein$analyticalBasenameIndexStr <- id_protein$analyticalsampleordinalstr
+cum_id_protein$analyticalBasenameIndexStr <- cum_id_protein$analyticalsampleordinalstr
+all_id_protein$analyticalBasenameIndexStr <- all_id_protein$analyticalsampleordinalstr
+
+id_protein$`Analytical sample` <- id_protein$analyticalBasenameIndex
+cum_id_protein$`Analytical sample` <- cum_id_protein$analyticalBasenameIndex
+all_id_protein$`Analytical sample` <- all_id_protein$analyticalBasenameIndex
+
+# mylog(id_protein)
 
 total_p <- nrow(Spectral_table)
 ```
@@ -628,7 +689,6 @@ total_p <- nrow(Spectral_table)
 ```{r, include=FALSE}
 # Cleaning the TMT10 data
 raw_edata <- read.table(tmt10_file, header=TRUE, sep="\t", row.names=1, quote="")
-# mylog(raw_edata)
 
 # Subset the raw metrics 
 
@@ -644,9 +704,6 @@ if (sum(s_selection,na.rm=TRUE) == 0) {
   s_selection <- grepl("^Log\\.", names(raw_edata), perl = TRUE)
   samples_ratios = 'Computed Ratios'
 }
-
-# mylog(s_selection)
-# mylog(sum(s_selection,na.rm=TRUE))
 
 # Spectral counts headers:
 if (sum(s_selection,na.rm=TRUE) == 0) {    
@@ -673,27 +730,40 @@ if (sum(grepl("^Median$",rownames(raw_edata))) > 0) {
 
 orig_s_metrics <- s_metrics
 
+colnames(s_metrics) <- sub("\\.Unshared\\.Log\\.Ratio$", '', colnames(s_metrics))
+colnames(s_metrics) <- sub("\\.Log\\.Ratio$", '', colnames(s_metrics))
+colnames(s_metrics) <- sub("\\.Unshared\\.Spectral\\.Counts$", '', colnames(s_metrics))
+colnames(s_metrics) <- sub("\\.Spectral\\.Counts$", '', colnames(s_metrics))
+colnames(s_metrics) <- sub("^Unshared\\.Log\\.", '', colnames(s_metrics))
+colnames(s_metrics) <- sub("^Log\\.", '', colnames(s_metrics))
+
 if (params$dochecks) {
-  mylog(c(ncol(s_metrics),ncol(Spectral_table)))
-  stopifnot(ncol(s_metrics) %% ncol(Spectral_table) == 0)
+  mylog(expdes1$sampleascolumn)
+  mylog(colnames(s_metrics))
+  stopifnot(setequal(expdes1$sampleascolumn,colnames(s_metrics)))
 }
 
-samples_per_analyticalsample = as.integer(ncol(s_metrics)/ncol(Spectral_table))
-
+# min_samples_per_analyticalsample = 100
+# max_samples_per_analytcialsample = 0
+# analyticalsamples = colnames(Spectral_table)
+# for(i in 1:length(analyticalsamples)){
+    # 
+# }
+# as.integer(ncol(s_metrics)/ncol(Spectral_table))
+# 
 # Clean the metrics (remove NAs in s_metrics, keep ref_metrics as reference)
+# mylog(s_metrics)
 ref_metrics <- s_metrics
-# mylog(s_metrics)
 s_metrics <- s_metrics[complete.cases(s_metrics),,drop=FALSE]
-# mylog(s_metrics)
 
 
 # Construct pheno metrics (s_metrics)
-s_sample <- colnames(s_metrics)
-s_x <- c(1:(ncol(s_metrics)/samples_per_analyticalsample))
-s_batch <- rep(s_x, each=samples_per_analyticalsample)
-s_pheno <- data.frame(s_sample, s_batch, row.names=1)
-s_pheno$s_batch <- sprintf("%02d",s_pheno$s_batch)
-batch = as.factor(s_pheno$s_batch)
+# s_sample <- colnames(s_metrics)
+# s_x <- c(1:(ncol(s_metrics)/samples_per_analyticalsample))
+# s_batch <- rep(s_x, each=samples_per_analyticalsample)
+# s_pheno <- data.frame(s_sample, s_batch, row.names=1)
+# s_pheno$s_batch <- sprintf("%02d",s_pheno$s_batch)
+# batch = as.factor(s_pheno$s_batch)
 #View(s_pheno)
 
 # Compute NAs in ref_metrics for PCA
@@ -703,6 +773,16 @@ batch = as.factor(s_pheno$s_batch)
 
 # Take only the complete rows.
 ref_metrics <- s_metrics;
+
+# mylog(s_metrics)
+
+if (samples_ratios == "Biological Samples") {
+  expdes1$sampleratios <- sprintf("%s/COMMON_INTERNAL_REFERENCE_SAMPLE",expdes1$sample)
+}
+outexpdes1 <- subset(expdes1, select=c(analyticalsampleordinal,analyticalsample,ratioordinal,labelratios,sampleratios))
+names(outexpdes1) <- c("AnalyticalSampleIndex","AnalyticalSample","IsobaricLabelRatioIndex","IsobaricLabelRatio","SampleRatio")
+write.table(outexpdes1, file=outexpdes_file, row.names=FALSE, sep="\t", quote = FALSE)
+
 ```
 
 ```{r,include=FALSE}
@@ -719,7 +799,7 @@ plotcolor <- plotColorPalettes(length(analyticalSamples)) # the number of colors
 
 # Create color palette for isobaric label 
 # iso_color = brewer.pal(samples_per_analyticalsample, 'Paired')
-iso_color = plotColorPalettes(samples_per_analyticalsample)
+iso_color = plotColorPalettes(number_of_numerator_labels)
 ```
 
 ```{r include=FALSE}
@@ -985,6 +1065,52 @@ percentage_table <- function(kind, n)
 ```  
 
 ```{r}
+
+space_labels <- function(nvalues,maxpoints) {
+  if (maxpoints == 0) {
+    maxpoints = 10000;
+    # mylog(c(nvalues,maxpoints,1:nvalues))
+    return(1:nvalues)
+  }
+  spacing = 0
+  npoints = 0
+  for (d in c(1,5,10,20,50)) {
+    npoints = floor(nvalues/d)
+    if (d*npoints < nvalues & (nvalues - d*npoints) >= ceiling(d/2)  ) {
+      npoints = npoints + 1
+    }
+    if (d != 1) {
+      npoints = npoints + 1
+    }
+    if (npoints <= maxpoints) {
+      spacing = d
+      break
+    }
+  }
+  # mylog(c(spacing,npoints))
+  if (nvalues >= 5 & npoints <= 3 & maxpoints >= 3) {
+    # mylog(c(nvalues,maxpoints,c(1,ceiling(nvalues/2),nvalues)))
+    return(c(1,ceiling(nvalues/2),nvalues))
+  }
+  if (floor(nvalues/spacing) == 0) {
+    # mylog(c(nvalues,maxpoints,c(1,nvalues)))
+    return(c(1,nvalues))
+  }
+  points = spacing*(1:floor(nvalues/spacing))
+  if (points[1] != 1) {
+    points = c(1,points)
+  }
+  if (points[length(points)] < nvalues) {
+    if ((nvalues - points[length(points)]) >= ceiling(spacing/2)) {
+      points = c(points,nvalues)
+    } else {
+      points[length(points)] = nvalues
+    }
+  }
+  # mylog(c(nvalues,maxpoints,points))
+  points
+}
+
 # Define plot function (Jiahao)
 gg_points <- function(data, y_string, x_string,
                       col_string, label_string, label2_string="",
@@ -995,24 +1121,25 @@ gg_points <- function(data, y_string, x_string,
     label2_string = y_string;
   }
   data.original.level=sort(as.vector(unique(data[, x_string])))
-  break.points=sort(as.numeric(unique(data[, x_string])))
-  new.break.points=break.points
-  if(length(break.points)>(sparse_x_labels+1) && sparse_x_labels>0){
-    divisor=floor(length(break.points)/sparse_x_labels)
-    max.x=length(break.points)-max(ceiling(divisor/2),2)
-    # max.x=divisor*sparse_x_labels
-    new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
-    if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
-  }
-
+  new.break.points = space_labels(length(data.original.level),sparse_x_labels)
+  # break.points=1:length(data.original.level)
+  # new.break.points=break.points
+  # if(length(break.points)>(sparse_x_labels) && sparse_x_labels>0){
+  #   divisor=ceiling(length(break.points)/sparse_x_labels)
+  #  max.x=length(break.points)-max(ceiling(divisor/2),2)
+  #  # max.x=divisor*sparse_x_labels
+  #  # max.x=length(break.points)
+  #   new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
+  #   if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
+  # }
   b <- ggplot(data, aes_string(y=y_string, 
                                x=x_string, 
         	               col=col_string, 
                                label=label_string, 
                                label2=label2_string)) +
        geom_point() +
-       scale_x_discrete(breaks = data.original.level[new.break.points], 
-                        labels = data.original.level[new.break.points]) + 
+       scale_x_continuous(breaks = data.original.level[new.break.points], 
+                          labels = data.original.level[new.break.points]) + 
        theme(# axis.title.x=element_blank(),
              plot.margin = margin(0.2, 0.5, 0.2, 0, "cm"),
              # axis.text.x=element_blank(),
@@ -1032,23 +1159,24 @@ gg_box <- function(data, y_string, x_string,
                    same_scale=FALSE, min_y=NULL, max_y=NULL,sparse_x_labels=0)
 {
   data.original.level=sort(as.vector(unique(data[, x_string])))
-  break.points=sort(as.numeric(unique(data[, x_string])))
-  new.break.points=break.points
-  if(length(break.points)>(sparse_x_labels+1) && sparse_x_labels>0){
-    divisor=floor(length(break.points)/sparse_x_labels)
-    max.x=length(break.points)-max(ceiling(divisor/2),2)
-    # max.x=divisor*sparse_x_labels
-    new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
-    if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
-  }
+  new.break.points = space_labels(length(data.original.level),sparse_x_labels)
+  # break.points=1:length(data.original.level)
+  # new.break.points=break.points
+  # if(length(break.points)>(sparse_x_labels+1) & sparse_x_labels>0){
+  #   divisor=floor(length(break.points)/sparse_x_labels)
+  #   max.x=length(break.points)-max(ceiling(divisor/2),2)
+  #   # max.x=divisor*sparse_x_labels
+  #   new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
+  #   if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
+  # }
 
   b <- ggplot(data, aes_string(y=y_string, x=x_string, 
                                col=col_string, label=label_string,
                                label2=label2_string)) +
     geom_boxplot()+
     geom_point(alpha=0.6) +
-    scale_x_discrete(breaks = data.original.level[new.break.points], 
-                     labels = data.original.level[new.break.points]) + 
+    scale_x_continuous(breaks = data.original.level[new.break.points], 
+                       labels = data.original.level[new.break.points]) + 
     theme(axis.title.x=element_blank(),
           plot.margin = margin(0.2, 1.0, 0.2, 0, "cm"),
           # axis.text.x=element_blank(),
@@ -1075,14 +1203,16 @@ gg_points_frac <- function(data, y_string, x_string,
   x_stringval <- paste0(x_string,"Index")
 
   break.points=sort(as.numeric(unique(data[, x_stringval])))
-  new.break.points=break.points
-  if(length(break.points)>(sparse_x_labels+1) && sparse_x_labels>0){
-    divisor=floor(length(break.points)/sparse_x_labels)
-    max.x=length(break.points)-max(ceiling(divisor/2),2)
-    # max.x=divisor*sparse_x_labels
-    new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
-    if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
-  }
+  new.break.points = space_labels(length(break.points),sparse_x_labels)
+  new.break.points = break.points[new.break.points]
+  # new.break.points=break.points
+  # if(length(break.points)>(sparse_x_labels+1) && sparse_x_labels>0){
+  #   divisor=floor(length(break.points)/sparse_x_labels)
+  #   max.x=length(break.points)-max(ceiling(divisor/2),2)
+  #   # max.x=divisor*sparse_x_labels
+  #   new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
+  #   if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
+  # }
   new.break.point.labels = fraclabs$ufraclab[fraclabs$fracindex %in% new.break.points];
 
   pf <- 
@@ -1123,27 +1253,29 @@ gg_points_frac <- function(data, y_string, x_string,
 gg_points_frac_perc <- function(data, y_string, x_string,
                                 col_string, group_string,
                                 label_string, 
-				                label2_string="Fraction",
+				label2_string="Fraction",
                                 boxplot=FALSE,
                                 same_scale=TRUE, min_y=NULL, max_y=NULL,sparse_x_labels=0)
 {
   
   data <- merge(data,fraclabs,by.x="Fraction",by.y="ufraclab")
-  # mylog(data)
   data$FractionIndex <- data$fracindex
   data$fracindex <- NULL
   data$fracnum <- NULL
   x_stringval = paste0(x_string,"Index")
   
   break.points=sort(as.numeric(unique(data[, x_stringval])))
-  new.break.points=break.points
-  if(length(break.points)>(sparse_x_labels+1)&&sparse_x_labels>0){
-    divisor=floor(length(break.points)/sparse_x_labels)
-    max.x=length(break.points)-max(ceiling(divisor/2),2)
-    # max.x=divisor*sparse_x_labels
-    new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
-    if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
-  }
+  new.break.points = space_labels(length(break.points),sparse_x_labels)
+  new.break.points = break.points[new.break.points]
+
+  # new.break.points=break.points
+  # if(length(break.points)>(sparse_x_labels+1)&&sparse_x_labels>0){
+  #   divisor=floor(length(break.points)/sparse_x_labels)
+  #   max.x=length(break.points)-max(ceiling(divisor/2),2)
+  #   # max.x=divisor*sparse_x_labels
+  #   new.break.points=break.points[seq(from=1,to=max.x, by=divisor)]
+  #   if(new.break.points[length(new.break.points)]<max(break.points)) new.break.points=c(new.break.points, max(break.points))
+  # }
   new.break.point.labels = fraclabs$ufraclab[fraclabs$fracindex %in% new.break.points]
 
   pfc <- 
@@ -1153,7 +1285,7 @@ gg_points_frac_perc <- function(data, y_string, x_string,
                              label=label_string, label2=label2_string)) + 
         facet_grid(~ Percentile)   +
         scale_x_continuous(breaks = new.break.points, labels=new.break.point.labels) +
-        theme(plot.margin = margin(0.2, 1.0, 0.2, 0, "cm")) #change 
+        theme(plot.margin = margin(0.2, 1.0, 0.2, 0, "cm"), panel.spacing.x = unit(2, "lines")) #change 
     
   
   if(same_scale){
@@ -1186,17 +1318,19 @@ gg_bars <- function(data, y_string, x_string, col_string, label_string)
 
 <P/>
 
-# - Input Files
+# - Study Files
 
 ```{r echo=FALSE}
-headers = c("Metrics",
+headers = c("Experimental Design",
 	    "Protein Summary",
+	    "Protein Relative Quant.",
 	    "Peptide Summary",
-	    "Quantitation")
-values =   c(paste0("<a href=",basename(QCmetrics_file)," target=\"_blank\"><b>",basename(QCmetrics_file),"</b></a>",sep=""),
+            "Metrics")
+values =   c(paste0("<a href=",basename(outexpdes_file)," target=\"_blank\"><b>",basename(outexpdes_file),"</b></a>",sep=""),
 	     paste0("<a href=",basename(Summary_file)," target=\"_blank\"><b>",basename(Summary_file),"</b></a>",sep=""),
+             paste0("<a href=",basename(tmt10_file)," target=\"_blank\"><b>",basename(tmt10_file),"</b></a>",sep=""),
              paste0("<a href=",basename(Peptide_file)," target=\"_blank\"><b>",basename(Peptide_file),"</b></a>",sep=""),
-             paste0("<a href=",basename(tmt10_file)," target=\"_blank\"><b>",basename(tmt10_file),"</b></a>",sep=""))
+             paste0("<a href=",basename(QCmetrics_file)," target=\"_blank\"><b>",basename(QCmetrics_file),"</b></a>",sep=""))
 
 summary_table <- matrix(values, ncol = 1)
 rownames(summary_table) <- headers
@@ -1223,7 +1357,7 @@ nRepsPerFracMin = min(t3)
 
 # Check!
 if (params$dochecks) {
-  mylog(c(nFiles,nAnalyticalSamples,nFractionsPerAS,nRepsPerFrac))
+  mylog(c(nFiles,(nAnalyticalSamples * nFractionsPerAS * nRepsPerFrac),nAnalyticalSamples,nFractionsPerAS,nRepsPerFrac))
   stopifnot(nFiles == (nAnalyticalSamples * nFractionsPerAS * nRepsPerFrac))
 }
 
@@ -1241,17 +1375,20 @@ nPeptides = length(unique(PEmetrics$Peptide))
 # Ratios computed / Typically "samples" in CPTAC studies
 nSamples = ncol(s_metrics)
 nCompleteObs = nrow(s_metrics)
-# mylog(c(nSamples,nCompleteObs))
 
-# Samples per analytical sample: samples_per_analyticalsample 
 nSamplesPerAS = samples_per_analyticalsample
 
-# Check!
 if (params$dochecks) {
-  mylog(c(nSamplesPerAS,nAnalyticalSamples,nSamples))
+  mylog(c(nSamples,nSamplesPerAS * nAnalyticalSamples,nSamplesPerAS,nAnalyticalSamples))
   stopifnot(nSamplesPerAS * nAnalyticalSamples == nSamples)
 }
 
+# Samples per analytical sample: samples_per_analyticalsample 
+if (min_samples_per_analyticalsample != samples_per_analyticalsample) {
+    nSamplesPerAS = sprintf("%s-%s",min_samples_per_analyticalsample,samples_per_analyticalsample);
+}
+
+# Check!
 nMSMSSpectra = sum(QCmetrics$numofMS2_ALL)
 nMSMSSpectraID = sum(QCmetrics$numofMS2_ID)
 
@@ -1353,7 +1490,6 @@ kable(summary_table, align = 'r') %>% kable_styling(bootstrap_options = c("strip
 # - Analytical Samples
 ```{r echo=FALSE,results='asis'}
 t <- table(QCmetrics$analyticalBasenameIndex)
-# mylog(QCmetrics)
 df1 = data.frame(analyticalBasenameIndex=QCmetrics$analyticalBasenameIndex,
                  fractionIndex=QCmetrics$FractionIndex)
 t2 = table(df1$analyticalBasenameIndex,df1$fractionIndex)
@@ -1362,27 +1498,39 @@ t2[t2==0] = 10000000 # this is a HACK!
 minreps = apply(t2, 1, FUN = min)
 df1 = df1[!duplicated(df1),]
 t1 = table(df1$analyticalBasenameIndex)
-if (nRepsPerFrac == 1) {
-    mat_t <- matrix(NA, ncol=3, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
-    mat_t[,1] <- sprintf("%02d",1:length(levels(QCmetrics$analyticalBasenameFactor)))
+t3 = table(expdes1$analyticalsampleordinal)
+if (FALSE & (nRepsPerFrac == 1) & (nRepsPerFracMin == 1)) {
+    mat_t <- matrix(NA, ncol=4, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
+    mat_t[,1] <- sort(unique(QCmetrics$analyticalBasename))
     mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
-    mat_t[,3] <- as.matrix(t1)[,1]
-    colnames(mat_t) <- c("Index","Analytical sample", "Fractions")
+    mat_t[,4] <- as.matrix(t1)[,1]
+    mat_t[,3] <- as.matrix(t3)[,1]
+    if (samples_ratios == "Biological Samples") {
+        colnames(mat_t) <- c("Index","Analytical Sample", "Samples", "Fractions")
+    } else {
+        colnames(mat_t) <- c("Index","Analytical Sample", "Ratios", "Fractions")
+    }
 } else {
-    mat_t <- matrix(NA, ncol=5, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
-    mat_t[,1] <- sprintf("%02d",1:length(levels(QCmetrics$analyticalBasenameFactor)))
+    mat_t <- matrix(NA, ncol=6, nrow=length(levels(QCmetrics$analyticalBasenameFactor)))
+    # mat_t[,1] <- sprintf("%02d",1:length(levels(QCmetrics$analyticalBasenameFactor)))
+    mat_t[,1] <- unique(expdes1$analyticalsampleordinal)
     mat_t[,2] <- levels(QCmetrics$analyticalBasenameFactor)
-    mat_t[,3] <- as.matrix(t1)[,1]
-    mat_t[,4] <- as.matrix(maxreps)[,1]
+    mat_t[,4] <- as.matrix(t1)[,1]
+    mat_t[,3] <- as.matrix(t3)[,1]
+    mat_t[,5] <- as.matrix(maxreps)[,1]
     for (i in 1:range(length(maxreps))) {
         if (minreps[i] != maxreps[i]) {
-            mat_t[i,4] = sprintf("%s-%s",minreps[i],maxreps[i])
+            mat_t[i,5] = sprintf("%s-%s",minreps[i],maxreps[i])
         }
     }
-    mat_t[,5] <- as.matrix(t)[,1]
-    colnames(mat_t) <- c("Index","Analytical sample", "Fractions","Replicates","Files")
+    mat_t[,6] <- as.matrix(t)[,1]
+    if (samples_ratios == "Biological Samples") {
+        colnames(mat_t) <- c("Index","Analytical sample","Samples","Fractions","Replicates","Files")
+    } else {
+        colnames(mat_t) <- c("Index","Analytical sample","Ratios","Fractions","Replicates","Files")
+    }
 }
-kable(mat_t) %>% kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, position="left")
+kable(mat_t, align="rlrrrr") %>% kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE, position="left")
 ```
 
 # - Proteins 
@@ -1394,8 +1542,8 @@ Number of identified proteins by analytical sample.
 ```{r, fig.height=3.3, fig.width=9.1}
 # Generate the Plot 
 g_id_protein <- gg_points(id_protein, 
-                          y_string="ProteinCounts", x_string="analyticalBasename",
-                          col_string="analyticalBasename", label_string="`Analytical sample`",min_y=0) 
+                          y_string="ProteinCounts", x_string="analyticalBasenameIndex",
+                          col_string="analyticalBasenameIndexStr", label_string="`Analytical sample`",label2_string="Proteins",min_y=0,sparse_x_labels=20)
 p_id_protein <- ggplotly(g_id_protein, tooltip=c("label","label2")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
 
 subplot(p_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
@@ -1408,8 +1556,8 @@ Cumulative number of identified proteins by analytical sample.
 ```{r, fig.height=3.3, fig.width=9.1}
 # Generate the Plot 
 g_cum_id_protein <- gg_points(cum_id_protein, 
-                          y_string="ProteinCounts", x_string="analyticalBasename",
-                          col_string="analyticalBasename", label_string="`Analytical sample`",label2_string="ProteinCounts",min_y=0) 
+                          y_string="ProteinCounts", x_string="analyticalBasenameIndex",
+                          col_string="analyticalBasenameIndexStr", label_string="`Analytical sample`",label2_string="Proteins",min_y=0,sparse_x_labels=20) 
 p_cum_id_protein <- ggplotly(g_cum_id_protein, tooltip=c("label","label2")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
 
 subplot(p_cum_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
@@ -1422,8 +1570,8 @@ Number of identified proteins in common by analytical sample.
 ```{r, fig.height=3.3, fig.width=9.1}
 # Generate the Plot 
 g_all_id_protein <- gg_points(all_id_protein, 
-                          y_string="ProteinCounts", x_string="analyticalBasename",
-                          col_string="analyticalBasename", label_string="`Analytical sample`",label2_string="ProteinCounts",min_y=0) 
+                          y_string="ProteinCounts", x_string="analyticalBasenameIndex",
+                          col_string="analyticalBasenameIndexStr", label_string="`Analytical sample`",label2_string="Proteins",min_y=0,sparse_x_labels=20) 
 p_all_id_protein <- ggplotly(g_all_id_protein, tooltip=c("label","label2")) %>% layout(annotations=protein_title) %>% layout(annotations=as_title)
 
 subplot(p_all_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
@@ -1436,11 +1584,12 @@ subplot(p_all_id_protein, margin=0.05)##, titleX=TRUE, titleY=TRUE)
 Boxplot of number of distinct peptides for fractions by analytical sample. 
 
 ```{r}
-numofPeptide_ID_per_AS <- tapply(QCmetrics$PeptideCount, INDEX=QCmetrics$analyticalBasename, FUN=sum)
+numofPeptide_ID_per_AS <- tapply(QCmetrics$PeptideCount, INDEX=QCmetrics$analyticalBasenameIndex, FUN=sum)
 
-QCmetrics_AS <- data.frame(analyticalBasename=names(numofPeptide_ID_per_AS),
+QCmetrics_AS <- data.frame(analyticalBasenameIndex=as.numeric(names(numofPeptide_ID_per_AS)),
                            numofPeptide_ID_per_AS=numofPeptide_ID_per_AS)
-QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasename
+QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasenameIndex
+QCmetrics_AS$analyticalBasenameIndexStr <- sprintf("%02d",QCmetrics_AS$analyticalBasenameIndex)
 
 ```
 
@@ -1452,8 +1601,8 @@ min_MS2 <- min(QCmetrics$PeptideCount)
 
 
 ##Get boxplot of number of peptide counts across fractions
-g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="analyticalBasename",
-                      col_string="analyticalBasename", label_string="`Analytical sample`")
+g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="analyticalBasenameIndex",
+                      col_string="analyticalBasenameIndexStr", label_string="`Analytical sample`",sparse_x_labels=20)
 p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title) %>% layout(annotations=as_title)
 
 subplot(p_MS2box_id, margin=0.05) ##, titleX=TRUE, titleY=TRUE)
@@ -1473,11 +1622,13 @@ Number of distinct peptides for analytical samples by fraction.
 #g_MS2box_id <- gg_box(QCmetrics, y_string="PeptideCount", x_string="Fraction",
 #                      col_string="Fraction", label_string="`Analytical sample`")
 #p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_title)
+# 
 g_DP_byF <- gg_points_frac(QCmetrics,
                                y_string="PeptideCount", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
-                               smooth=ifelse(nFractionsPerAS>3,TRUE,FALSE)) + 
+                               box = TRUE,
+                               sparse_x_labels=20) + 
 	    theme(plot.margin = margin(0.2, 1.0, 0.2, 0.3, "cm"))
 p_DP_byF <- ggplotly(g_DP_byF, tooltip=c("label","label2")) %>% layout(annotations=peptide_title) %>% layout(annotations=fr_title)
 
@@ -1500,16 +1651,16 @@ min_MS2 <- min(min(QCmetrics_AS$numofMS2_ALL_per_AS), min(QCmetrics_AS$numofMS2_
 
 ##Get plot of number of spectra
 g_MS2box_all <- gg_points(QCmetrics_AS, 
-                          y_string="numofMS2_ALL_per_AS", x_string="analyticalBasename",
-                          col_string="analyticalBasename", label_string="`Analytical sample`",
+                          y_string="numofMS2_ALL_per_AS", x_string="analyticalBasenameIndex",
+                          col_string="analyticalBasenameIndexStr", label_string="`Analytical sample`",
 			  sparse_x_labels=5) +
 	        theme(plot.margin = margin(0.2, 0.5, 0.2, 0.3, "cm"))
 p_MS2box_all <- ggplotly(g_MS2box_all, tooltip=c("label")) %>% layout(annotations=all_spect_title) %>% layout(annotations=as_title)
 
 ##Get plot of number of spectra
 g_MS2box_id <- gg_points(QCmetrics_AS, 
-                         y_string="numofMS2_ID_per_AS", x_string="analyticalBasename",
-                         col_string="analyticalBasename", label_string="`Analytical sample`",                    
+                         y_string="numofMS2_ID_per_AS", x_string="analyticalBasenameIndex",
+                         col_string="analyticalBasenameIndexStr", label_string="`Analytical sample`",                    
                          sparse_x_labels=5) +
 	        theme(plot.margin = margin(0.2, 0.5, 0.2, 0.3, "cm"))
 p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label")) %>% layout(annotations=id_spect_title) %>% layout(annotations=as_title)
@@ -1529,15 +1680,14 @@ min_MS2 <- min(min(QCmetrics$numofMS2_ALL), min(QCmetrics$numofMS2_ID))
 
 
 ##Get boxplot of number of spectra across fractions
-g_MS2box_all <- gg_box(QCmetrics, y_string="numofMS2_ALL", x_string="analyticalBasename",
-                       col_string="analyticalBasename", label_string="`Analytical sample`",
-		      sparse_x_labels=5) +
+g_MS2box_all <- gg_box(QCmetrics, y_string="numofMS2_ALL", x_string="analyticalBasenameIndex",
+                       col_string="analyticalBasenameIndexStr", label_string="`Analytical sample`", sparse_x_labels=5) +
 	        theme(plot.margin = margin(0.2, 1.0, 0.2, 0.3, "cm"))
 p_MS2box_all <- ggplotly(g_MS2box_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title) %>% layout(annotations=as_title)
 
 ##Get boxplot of number of spectra across fractions
-g_MS2box_id <- gg_box(QCmetrics, y_string="numofMS2_ID", x_string="analyticalBasename",
-                      col_string="analyticalBasename", label_string="`Analytical sample`",
+g_MS2box_id <- gg_box(QCmetrics, y_string="numofMS2_ID", x_string="analyticalBasenameIndex",
+                      col_string="analyticalBasenameIndexStr", label_string="`Analytical sample`",
 		      sparse_x_labels=5) +
 	        theme(plot.margin = margin(0.2, 1.0, 0.2, 0.3, "cm"))
 p_MS2box_id <- ggplotly(g_MS2box_id, tooltip=c("label","label2")) %>% layout(annotations=id_spect_title) %>% layout(annotations=as_title)
@@ -1555,6 +1705,7 @@ g_MS2sca_all <- gg_points_frac(QCmetrics,
                                y_string="numofMS2_ALL", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
+                               box=TRUE,
                                smooth=ifelse(nFractionsPerAS>3,TRUE,FALSE),sparse_x_label=4) +
 	        theme(plot.margin = margin(0.2, 1.0, 0.2, 0.5, "cm"))
 p_MS2sca_all <- ggplotly(g_MS2sca_all, tooltip=c("label","label2")) %>% layout(annotations=all_spect_title) %>% layout(annotations=fr_title)
@@ -1563,6 +1714,7 @@ g_MS2sca_id <- gg_points_frac(QCmetrics,
                                y_string="numofMS2_ID", x_string="Fraction",
                                col_string="analyticalBasename",
                                label_string = "`Analytical sample`",
+                               box=TRUE,
                                smooth=ifelse(nFractionsPerAS>3,TRUE,FALSE),sparse_x_label=4) +
 	        theme(plot.margin = margin(0.2, 1.0, 0.2, 0.5, "cm"))
 p_MS2sca_id <- ggplotly(g_MS2sca_id, tooltip=c("label","label2"))  %>% layout(annotations=id_spect_title) %>% layout(annotations=fr_title)
@@ -1766,7 +1918,7 @@ g_id <- gg_points_frac_perc(filter(QCmetricsPeptideRd, Percentile %in% c(5,25,50
                             min_y = min(subset(QCmetricsPeptideRd, Percentile <= 95,select=c(value))),
                             #max_y=find_max(QCmetricsPeptideRd))
                             max_y = max(subset(QCmetricsPeptideRd, Percentile <= 95,select=c(value))),
-			    sparse_x_labels=4)
+			    sparse_x_labels=3)
 
 p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=peptide_rd, hovermode = 'compare') %>% layout(annotations=fr_title)
 
@@ -1813,6 +1965,8 @@ p_id <- ggplotly(g_id, tooltip=c("label","label2")) %>% layout(annotations=id_sp
 
 
 subplot(p_all, p_id, margin=0.05)
+
+# mylog(c(nSamples,nCompleteObs))
 
 ```
 ```{r, child = if ((nSamples > 2) & (nCompleteObs > 2)) 'batchhdr.Rmd' else 'empty.Rmd'} 

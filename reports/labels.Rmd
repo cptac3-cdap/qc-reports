@@ -5,11 +5,19 @@ PCA analysis of quantiation matrix with biological samples colored by isobaric l
 ```{r, fig.width=9, fig.height=7.5, eval=(protocol!='Label-free'), include=(protocol!='Label-free')}
 # Generate index of isobaric label 
 iso_lab <- rep(c(1:samples_per_analyticalsample), nAnalyticalSamples)
-df_out$`Isobaric Label` <- as.factor(iso_lab)
-df_out$`Ratio Index` <- as.factor(iso_lab)
+if ( samples_ratios == "Biological Samples" ) {
+    df_out$`Isobaric Label` <- df_out$labelfactor
+} else {
+    df_out$`Isobaric Label Ratio` <- df_out$labelratiosfactor
+}
+# df_out$`Ratio Index` <- df_out$labelfactor
 
 # Generate the plot
-p2<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Isobaric Label`,label=`Ratio`,label2=`Ratio Index`))
+if ( samples_ratios == "Biological Samples" ) {
+  p2<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Isobaric Label`,label=`Sample`,label2=`Isobaric Label`))
+} else {
+  p2<-ggplot(df_out,aes(x=PC1,y=PC2,color=`Isobaric Label Ratio`,label=`Ratio`,label2=`Isobaric Label Ratio`))
+}
 p2<-p2+geom_point()+scale_colour_manual(values=iso_color)
 p_pca_b2 <- ggplotly(p2, tooltip=c("label","label2")) %>% layout(annotations = pca_title, xaxis = x_per, yaxis = y_per, showlegend=FALSE , legend=list(orientation = "h", x = 0.18, y = -0.15, xanchor = "left", yanchor = "bottom"))
 
