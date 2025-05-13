@@ -42,7 +42,7 @@ stopifnot(file.exists(Quant_file))
 
 report_file <- args[2]
 
-extraparams = list(dochecks=FALSE)
+extraparams = list(dochecks=FALSE,noexpdesign=FALSE)
 if (length(args) > 2) {
   for (i in 3:length(args)) {
       extraparams[args[i]] = TRUE
@@ -67,7 +67,8 @@ renderparams <- list(qcmetricsfile = QCmetrics_file,
                      mayufile = Mayu_file,
 		     expdesfile = expdes_file,
 	             format = outformat,
-		     dochecks = extraparams$dochecks) 
+		     dochecks = extraparams$dochecks,
+                     noexpdesign = extraparams$noexpdesign) 
 
 rmarkdown::render(file.path(work.dir,'qcreport.Rmd'),
                   output_format = outformat, 

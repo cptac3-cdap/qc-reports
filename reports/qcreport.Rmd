@@ -12,6 +12,7 @@ params:
   format: html_document
   debug: true
   dochecks: false
+  noexpdesign: false
 output:
   html_document:
     number_sections: yes
@@ -776,12 +777,14 @@ ref_metrics <- s_metrics;
 
 # mylog(s_metrics)
 
-if (samples_ratios == "Biological Samples") {
-  expdes1$sampleratios <- sprintf("%s/COMMON_INTERNAL_REFERENCE_SAMPLE",expdes1$sample)
+if (!params$noexpdesign) {
+  if (samples_ratios == "Biological Samples") {
+    expdes1$sampleratios <- sprintf("%s/COMMON_INTERNAL_REFERENCE_SAMPLE",expdes1$sample)
+  }
+  outexpdes1 <- subset(expdes1, select=c(analyticalsampleordinal,analyticalsample,ratioordinal,labelratios,sampleratios))
+  names(outexpdes1) <- c("AnalyticalSampleIndex","AnalyticalSample","IsobaricLabelRatioIndex","IsobaricLabelRatio","SampleRatio")
+  write.table(outexpdes1, file=outexpdes_file, row.names=FALSE, sep="\t", quote = FALSE)
 }
-outexpdes1 <- subset(expdes1, select=c(analyticalsampleordinal,analyticalsample,ratioordinal,labelratios,sampleratios))
-names(outexpdes1) <- c("AnalyticalSampleIndex","AnalyticalSample","IsobaricLabelRatioIndex","IsobaricLabelRatio","SampleRatio")
-write.table(outexpdes1, file=outexpdes_file, row.names=FALSE, sep="\t", quote = FALSE)
 
 ```
 
@@ -1323,14 +1326,19 @@ gg_bars <- function(data, y_string, x_string, col_string, label_string)
 ```{r echo=FALSE}
 headers = c("Experimental Design",
 	    "Protein Summary",
-	    "Protein Relative Quant.",
 	    "Peptide Summary",
-            "Metrics")
+            "Metrics",
+	    "Relative Quantitation")
 values =   c(paste0("<a href=",basename(outexpdes_file)," target=\"_blank\"><b>",basename(outexpdes_file),"</b></a>",sep=""),
 	     paste0("<a href=",basename(Summary_file)," target=\"_blank\"><b>",basename(Summary_file),"</b></a>",sep=""),
-             paste0("<a href=",basename(tmt10_file)," target=\"_blank\"><b>",basename(tmt10_file),"</b></a>",sep=""),
              paste0("<a href=",basename(Peptide_file)," target=\"_blank\"><b>",basename(Peptide_file),"</b></a>",sep=""),
-             paste0("<a href=",basename(QCmetrics_file)," target=\"_blank\"><b>",basename(QCmetrics_file),"</b></a>",sep=""))
+             paste0("<a href=",basename(QCmetrics_file)," target=\"_blank\"><b>",basename(QCmetrics_file),"</b></a>",sep=""),
+             paste0("<a href=",basename(tmt10_file)," target=\"_blank\"><b>",basename(tmt10_file),"</b></a>",sep=""))
+
+if (params$noexpdesign) {
+  headers = headers[2:5]
+  values = values[2:5]
+}
 
 summary_table <- matrix(values, ncol = 1)
 rownames(summary_table) <- headers
